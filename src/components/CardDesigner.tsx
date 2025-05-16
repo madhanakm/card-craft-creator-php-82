@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { FontBold, FontSize, GripVertical } from "lucide-react";
+import { Bold, Type, GripVertical } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -151,12 +150,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     field.fontWeight === "bold" && "bg-gray-100"
                   )}
                 >
-                  <FontBold className="h-4 w-4" />
+                  <Bold className="h-4 w-4" />
                 </Button>
               </div>
               
               <div className="flex items-center gap-3">
-                <FontSize className="h-4 w-4 text-gray-500" />
+                <Type className="h-4 w-4 text-gray-500" />
                 <Slider
                   value={[field.fontSize]}
                   min={8}
