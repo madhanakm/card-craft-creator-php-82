@@ -16,55 +16,74 @@ export const generatePDF = (
 ) => {
   return new Promise<void>((resolve, reject) => {
     try {
-      // Create a new PDF document
+      // Create a new PDF document with A4 format to allow multiple cards per page
       const pdf = new jsPDF({
-        orientation: orientation === "portrait" ? "portrait" : "landscape",
-        unit: "mm",
-        format: [
-          CARD_DIMENSIONS[orientation].width,
-          CARD_DIMENSIONS[orientation].height
-        ]
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
       });
+      
+      // A4 dimensions in mm
+      const pageWidth = 210;
+      const pageHeight = 297;
+      
+      // Calculate how many cards we can fit on a page (with 5mm margins)
+      const cardsPerRow = Math.floor((pageWidth - 10) / (CARD_DIMENSIONS[orientation].width + 5));
+      const cardsPerColumn = Math.floor((pageHeight - 10) / (CARD_DIMENSIONS[orientation].height + 5));
+      const cardsPerPage = cardsPerRow * cardsPerColumn;
 
       // Load the background image
       const img = new Image();
       img.src = backgroundImage;
 
       img.onload = () => {
-        // For each record, create a new page with an ID card
+        // Process each record to create an ID card
         records.forEach((record, index) => {
-          // Add a new page for each card after the first one
-          if (index > 0) {
+          // Calculate position on page
+          const pageIndex = Math.floor(index / cardsPerPage);
+          const positionOnPage = index % cardsPerPage;
+          const row = Math.floor(positionOnPage / cardsPerRow);
+          const col = positionOnPage % cardsPerRow;
+          
+          // Add new page if needed
+          if (positionOnPage === 0 && index > 0) {
             pdf.addPage();
           }
-
-          // Add the background image
+          
+          // Calculate card position on page (with margins)
+          const x = 5 + col * (CARD_DIMENSIONS[orientation].width + 5);
+          const y = 5 + row * (CARD_DIMENSIONS[orientation].height + 5);
+          
+          // Add the background image for this card
           pdf.addImage(
             img,
             'JPEG',
-            0,
-            0,
+            x,
+            y,
             CARD_DIMENSIONS[orientation].width,
             CARD_DIMENSIONS[orientation].height
           );
 
           // Scale factor to convert from pixels to mm
-          // Assuming the designer uses a 300px width for portrait cards
+          // Assuming the designer uses a 300px width for portrait cards or 480px for landscape
           const scale = orientation === "portrait" 
             ? CARD_DIMENSIONS.portrait.width / 300
             : CARD_DIMENSIONS.landscape.width / 480;
 
-          // Add each text field
+          // Add each text field for this card
           fields.forEach(field => {
             const value = record[field.field] || '';
+            
+            // Skip empty values
+            if (!value) return;
             
             // Set the font properties
             pdf.setFontSize(field.fontSize * 0.75); // Adjust font size for PDF
             pdf.setFont("helvetica", field.fontWeight === "bold" ? "bold" : "normal");
             
-            // Calculate the position in mm
-            const xPos = field.x * scale;
-            const yPos = field.y * scale;
+            // Calculate the position in mm, relative to this card's position
+            const xPos = x + (field.x * scale);
+            const yPos = y + (field.y * scale);
             
             // Add the text to the PDF
             pdf.text(value, xPos, yPos);

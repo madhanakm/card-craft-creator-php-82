@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,6 +7,7 @@ import BackgroundUploader from "@/components/BackgroundUploader";
 import CardDesigner from "@/components/CardDesigner";
 import CardPreview from "@/components/CardPreview";
 import { useToast } from "@/components/ui/use-toast";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -14,6 +16,9 @@ const Index = () => {
   const [cardFields, setCardFields] = useState<Array<{ id: string; field: string; x: number; y: number; fontSize: number; fontWeight: string }>>([]);
   const [activeStep, setActiveStep] = useState("upload-data");
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [previewsPerPage, setPreviewsPerPage] = useState(5);
 
   const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
     setCsvData(data);
@@ -29,6 +34,7 @@ const Index = () => {
     }));
     
     setCardFields(initialFields);
+    setCurrentPreviewIndex(0);
     
     toast({
       title: "CSV File Uploaded",
@@ -60,36 +66,45 @@ const Index = () => {
     }
   };
 
-  const handleGeneratePDF = () => {
-    if (typeof window.generatePDF === 'function' && backgroundImage) {
-      try {
-        window.generatePDF(csvData.records, cardFields, backgroundImage, orientation)
-          .then(() => {
-            toast({
-              title: "Success",
-              description: `Generated PDF with ${csvData.records.length} ID cards.`,
-            });
-          })
-          .catch((error) => {
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: `Failed to generate PDF: ${error.message}`,
-            });
-          });
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred while generating the PDF.",
-        });
-      }
-    } else {
+  const handleGeneratePDF = async () => {
+    if (typeof window.generatePDF !== 'function' || !backgroundImage) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "PDF generation is not available or background image is missing.",
       });
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    
+    try {
+      await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation);
+      toast({
+        title: "Success",
+        description: `Generated PDF with ${csvData.records.length} ID cards.`,
+      });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+  
+  const nextPreview = () => {
+    if (currentPreviewIndex < csvData.records.length - 1) {
+      setCurrentPreviewIndex(currentPreviewIndex + 1);
+    }
+  };
+  
+  const prevPreview = () => {
+    if (currentPreviewIndex > 0) {
+      setCurrentPreviewIndex(currentPreviewIndex - 1);
     }
   };
 
@@ -125,7 +140,7 @@ const Index = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {csvData.records.slice(0, 3).map((record, rowIndex) => (
+                        {csvData.records.slice(0, previewsPerPage).map((record, rowIndex) => (
                           <tr key={rowIndex}>
                             {csvData.headers.map((header, colIndex) => (
                               <td key={colIndex} className="px-3 py-2 text-sm text-gray-500">
@@ -137,8 +152,10 @@ const Index = () => {
                       </tbody>
                     </table>
                   </div>
-                  {csvData.records.length > 3 && (
-                    <p className="text-sm text-gray-500 mt-2">Showing 3 of {csvData.records.length} records</p>
+                  {csvData.records.length > previewsPerPage && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Showing {previewsPerPage} of {csvData.records.length} records
+                    </p>
                   )}
                 </div>
               )}
@@ -152,6 +169,7 @@ const Index = () => {
                 <li>Each row after that represents one ID card</li>
                 <li>Make sure your CSV file is properly formatted</li>
                 <li>Recommended fields: Name, ID, Department, etc.</li>
+                <li><strong>Large datasets supported:</strong> This application can handle large CSV files with many records</li>
               </ul>
             </div>
           </div>
@@ -214,16 +232,50 @@ const Index = () => {
             
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-xl font-semibold mb-4">Card Preview</h2>
+              
+              {csvData.records.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500">
+                      Previewing record {currentPreviewIndex + 1} of {csvData.records.length}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={prevPreview}
+                        disabled={currentPreviewIndex === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={nextPreview}
+                        disabled={currentPreviewIndex === csvData.records.length - 1}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <CardPreview 
                 backgroundImage={backgroundImage || ''}
                 fields={cardFields}
-                data={csvData.records[0] || {}}
+                data={csvData.records[currentPreviewIndex] || {}}
                 orientation={orientation}
               />
               
               <div className="mt-6">
-                <Button className="w-full" onClick={handleGeneratePDF}>
-                  Generate PDF
+                <Button 
+                  className="w-full" 
+                  onClick={handleGeneratePDF} 
+                  disabled={isGeneratingPDF || csvData.records.length === 0}
+                >
+                  {isGeneratingPDF ? "Generating..." : "Generate PDF"}
+                  <Download className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
