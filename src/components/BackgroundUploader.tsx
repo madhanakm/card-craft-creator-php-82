@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Upload, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +11,7 @@ interface BackgroundUploaderProps {
 const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -60,6 +61,11 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
     img.src = imageUrl;
   };
 
+  const handleButtonClick = () => {
+    // Trigger click on the hidden file input
+    fileInputRef.current?.click();
+  };
+
   return (
     <div>
       <div
@@ -81,19 +87,18 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
           <p className="text-xs text-gray-400 mb-4">
             Recommended size: 3.38" x 2.13" (85.6mm x 53.98mm) for standard ID cards
           </p>
-          <label htmlFor="image-upload">
-            <Button variant="outline" className="cursor-pointer" onClick={() => {}}>
-              <ImagePlus className="h-4 w-4 mr-2" />
-              Select Image
-            </Button>
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </label>
+          <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
+            <ImagePlus className="h-4 w-4 mr-2" />
+            Select Image
+          </Button>
+          <input
+            ref={fileInputRef}
+            id="image-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
         </div>
       </div>
     </div>
