@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +57,39 @@ const Index = () => {
       setActiveStep("upload-background");
     } else if (activeStep === "upload-background" && backgroundImage) {
       setActiveStep("design");
+    }
+  };
+
+  const handleGeneratePDF = () => {
+    if (typeof window.generatePDF === 'function' && backgroundImage) {
+      try {
+        window.generatePDF(csvData.records, cardFields, backgroundImage, orientation)
+          .then(() => {
+            toast({
+              title: "Success",
+              description: `Generated PDF with ${csvData.records.length} ID cards.`,
+            });
+          })
+          .catch((error) => {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: `Failed to generate PDF: ${error.message}`,
+            });
+          });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "An unexpected error occurred while generating the PDF.",
+        });
+      }
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "PDF generation is not available or background image is missing.",
+      });
     }
   };
 
@@ -190,7 +222,7 @@ const Index = () => {
               />
               
               <div className="mt-6">
-                <Button className="w-full" onClick={() => window.generatePDF(csvData.records, cardFields, backgroundImage || '', orientation)}>
+                <Button className="w-full" onClick={handleGeneratePDF}>
                   Generate PDF
                 </Button>
               </div>
