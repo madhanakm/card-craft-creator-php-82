@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Upload, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +11,7 @@ interface CSVUploaderProps {
 const CSVUploader: React.FC<CSVUploaderProps> = ({ onUpload }) => {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processCSV = (csvText: string) => {
     try {
@@ -93,6 +94,11 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onUpload }) => {
     }
   };
 
+  const handleButtonClick = () => {
+    // Trigger click on the hidden file input
+    fileInputRef.current?.click();
+  };
+
   const readFile = (file: File) => {
     const reader = new FileReader();
     
@@ -130,19 +136,18 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onUpload }) => {
           <p className="text-sm text-gray-500 mb-4">
             Drag & drop your CSV file here, or click to browse
           </p>
-          <label htmlFor="csv-upload">
-            <Button variant="outline" className="cursor-pointer" onClick={() => {}}>
-              <FileUp className="h-4 w-4 mr-2" />
-              Select CSV File
-            </Button>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </label>
+          <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
+            <FileUp className="h-4 w-4 mr-2" />
+            Select CSV File
+          </Button>
+          <input
+            ref={fileInputRef}
+            id="csv-upload"
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
         </div>
       </div>
     </div>
