@@ -7,18 +7,44 @@ import BackgroundUploader from "@/components/BackgroundUploader";
 import CardDesigner from "@/components/CardDesigner";
 import CardPreview from "@/components/CardPreview";
 import { useToast } from "@/components/ui/use-toast";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Folder } from "lucide-react";
+import { CardField } from "@/utils/pdfGenerator";
+import { Input } from "@/components/ui/input";
 
 const Index = () => {
   const { toast } = useToast();
   const [csvData, setCsvData] = useState<{ headers: string[]; records: Record<string, string>[]; }>({ headers: [], records: [] });
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [cardFields, setCardFields] = useState<Array<{ id: string; field: string; x: number; y: number; fontSize: number; fontWeight: string }>>([]);
+  const [cardFields, setCardFields] = useState<CardField[]>([]);
   const [activeStep, setActiveStep] = useState("upload-data");
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [previewsPerPage, setPreviewsPerPage] = useState(5);
+  const [photoFolder, setPhotoFolder] = useState<string>("");
+
+  // Handle file selector for photo folder
+  const handlePhotoFolderSelect = () => {
+    // Create a file input dynamically
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true; // Allow directory selection
+    
+    input.onchange = (e: Event) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        // Get the path to the folder
+        const path = files[0].webkitRelativePath.split('/')[0];
+        setPhotoFolder(path);
+        toast({
+          title: "Photo Folder Selected",
+          description: `Selected folder: ${path}`,
+        });
+      }
+    };
+    
+    input.click();
+  };
 
   const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
     setCsvData(data);
@@ -30,7 +56,8 @@ const Index = () => {
       x: 50,
       y: 50 + (index * 30),
       fontSize: 14,
-      fontWeight: "normal"
+      fontWeight: "normal",
+      color: "#000000"
     }));
     
     setCardFields(initialFields);
@@ -50,7 +77,7 @@ const Index = () => {
     });
   };
 
-  const handleFieldUpdate = (updatedFields: Array<{ id: string; field: string; x: number; y: number; fontSize: number; fontWeight: string }>) => {
+  const handleFieldUpdate = (updatedFields: CardField[]) => {
     setCardFields(updatedFields);
   };
 
@@ -79,7 +106,7 @@ const Index = () => {
     setIsGeneratingPDF(true);
     
     try {
-      await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation);
+      await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation, photoFolder);
       toast({
         title: "Success",
         description: `Generated PDF with ${csvData.records.length} ID cards.`,
@@ -167,10 +194,20 @@ const Index = () => {
                 <li>Upload a CSV file with your ID card data</li>
                 <li>The first row should contain the field names</li>
                 <li>Each row after that represents one ID card</li>
-                <li>Make sure your CSV file is properly formatted</li>
-                <li>Recommended fields: Name, ID, Department, etc.</li>
-                <li><strong>Large datasets supported:</strong> This application can handle large CSV files with many records</li>
+                <li>For photo fields, include the filename in the CSV</li>
+                <li>For fields with special characters/commas, put them in the last column</li>
+                <li>Use hex color codes (e.g., #FF0000) for text colors</li>
               </ul>
+              
+              <div className="bg-blue-50 p-4 rounded-lg mt-6">
+                <h3 className="text-md font-semibold text-blue-700 mb-2">Special Features</h3>
+                <ul className="list-disc pl-5 space-y-2 text-blue-700">
+                  <li>Photo fields: Mark any field as photo to use images</li>
+                  <li>Photo shape: Choose between circle or square photos</li>
+                  <li>Custom colors: Change text color with hex codes</li>
+                  <li>Photo dimensions: Set custom photo sizes</li>
+                </ul>
+              </div>
             </div>
           </div>
           
@@ -233,6 +270,24 @@ const Index = () => {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-xl font-semibold mb-4">Card Preview</h2>
               
+              {/* Photo folder selection */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-medium mb-2">Photo Directory</h3>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handlePhotoFolderSelect} 
+                    className="flex-shrink-0"
+                  >
+                    <Folder className="h-4 w-4 mr-1" /> Select Folder
+                  </Button>
+                  <p className="text-xs text-gray-500 truncate">
+                    {photoFolder ? photoFolder : "No folder selected"}
+                  </p>
+                </div>
+              </div>
+              
               {csvData.records.length > 0 && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
@@ -266,6 +321,7 @@ const Index = () => {
                 fields={cardFields}
                 data={csvData.records[currentPreviewIndex] || {}}
                 orientation={orientation}
+                photoFolder={photoFolder}
               />
               
               <div className="mt-6">
