@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,25 +24,39 @@ const Index = () => {
 
   // Handle file selector for photo folder
   const handlePhotoFolderSelect = () => {
-    // Create a file input dynamically
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.webkitdirectory = true; // Allow directory selection
+    console.log("Photo folder selection triggered");
     
-    input.onchange = (e: Event) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files && files.length > 0) {
-        // Get the path to the folder
-        const path = files[0].webkitRelativePath.split('/')[0];
-        setPhotoFolder(path);
-        toast({
-          title: "Photo Folder Selected",
-          description: `Selected folder: ${path}`,
-        });
-      }
-    };
-    
-    input.click();
+    try {
+      // Create a file input dynamically
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.webkitdirectory = true; // Allow directory selection
+      
+      input.onchange = (e: Event) => {
+        const files = (e.target as HTMLInputElement).files;
+        console.log("Files selected:", files?.length);
+        
+        if (files && files.length > 0) {
+          // Get the path to the folder - this is the folder name only
+          const path = files[0].webkitRelativePath.split('/')[0];
+          console.log("Selected folder path:", path);
+          setPhotoFolder(path);
+          toast({
+            title: "Photo Folder Selected",
+            description: `Selected folder: ${path} (${files.length} files)`,
+          });
+        }
+      };
+      
+      input.click();
+    } catch (error) {
+      console.error("Error selecting photo folder:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to select photo folder. Please try again.",
+      });
+    }
   };
 
   const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
@@ -273,18 +286,25 @@ const Index = () => {
               {/* Photo folder selection */}
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <h3 className="text-sm font-medium mb-2">Photo Directory</h3>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handlePhotoFolderSelect} 
-                    className="flex-shrink-0"
-                  >
-                    <Folder className="h-4 w-4 mr-1" /> Select Folder
-                  </Button>
-                  <p className="text-xs text-gray-500 truncate">
-                    {photoFolder ? photoFolder : "No folder selected"}
-                  </p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handlePhotoFolderSelect} 
+                      className="flex-shrink-0"
+                    >
+                      <Folder className="h-4 w-4 mr-1" /> Select Folder
+                    </Button>
+                    <span className="text-xs text-gray-500 truncate">
+                      {photoFolder ? photoFolder : "No folder selected"}
+                    </span>
+                  </div>
+                  {photoFolder && (
+                    <p className="text-xs text-blue-600">
+                      Photo folder selected: {photoFolder}
+                    </p>
+                  )}
                 </div>
               </div>
               

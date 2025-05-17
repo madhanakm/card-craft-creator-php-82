@@ -42,11 +42,14 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       const photoFilename = data[field.field];
       if (!photoFilename) return;
       
-      // Create full path if folder is provided
+      // Don't reload if already loaded with same path
       const photoPath = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
+      const cacheKey = `${photoFolder || ""}:${photoFilename}`;
       
-      // Don't reload if already loaded
-      if (loadedPhotos[photoFilename]) return;
+      // Only load if not already loaded or if folder changed
+      if (loadedPhotos[cacheKey]) return;
+      
+      console.log("Attempting to load photo:", photoPath);
       
       // Load the image
       const img = new Image();
@@ -54,6 +57,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       img.src = photoPath;
       
       img.onload = () => {
+        console.log("Photo loaded successfully:", photoPath);
         // Create a data URL from the loaded image
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
@@ -66,12 +70,12 @@ const CardPreview: React.FC<CardPreviewProps> = ({
         
         setLoadedPhotos(prev => ({
           ...prev,
-          [photoFilename]: dataUrl
+          [cacheKey]: dataUrl
         }));
       };
       
-      img.onerror = () => {
-        console.error(`Failed to load photo: ${photoFilename}`);
+      img.onerror = (e) => {
+        console.error(`Failed to load photo: ${photoPath}`, e);
       };
     });
   }, [data, photoFolder, fields]);
@@ -93,7 +97,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           // Check if this is a photo field
           if (field.isPhoto) {
             const photoFilename = data[field.field];
-            const photoSrc = loadedPhotos[photoFilename];
+            const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+            const photoSrc = loadedPhotos[cacheKey];
             
             // Skip if no photo data
             if (!photoSrc) return null;
@@ -136,6 +141,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 fontSize: `${field.fontSize * scaleFactor}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                 color: field.color || "inherit",
+                maxWidth: `${cardDimensions.width - (field.x * scaleFactor) - 10}px`,
+                wordBreak: "break-word"
               }}
             >
               {cleanedValue}

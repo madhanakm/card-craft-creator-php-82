@@ -50,6 +50,7 @@ export const generatePDF = (
 
       // Load the background image
       const img = new Image();
+      img.crossOrigin = "Anonymous";
       img.src = backgroundImage;
 
       img.onload = () => {
@@ -76,31 +77,38 @@ export const generatePDF = (
         records.forEach(record => {
           fields.filter(f => f.isPhoto).forEach(field => {
             const photoFilename = record[field.field];
-            if (photoFilename && !photoCache[photoFilename]) {
-              const photoImg = new Image();
-              photoImg.crossOrigin = "Anonymous";
-              // If photoFolder is provided, use it to create the full path
-              photoImg.src = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
+            if (!photoFilename) return;
+            
+            const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+            if (photoCache[cacheKey]) return;
+            
+            const photoImg = new Image();
+            photoImg.crossOrigin = "Anonymous";
+            // Create full path to photo
+            const photoPath = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
+            
+            console.log("PDF generator loading photo:", photoPath);
+            photoImg.src = photoPath;
+            
+            photoImg.onload = () => {
+              console.log("PDF generator photo loaded:", photoPath);
+              photoCache[cacheKey] = photoImg;
+              loadedPhotos++;
               
-              photoImg.onload = () => {
-                photoCache[photoFilename] = photoImg;
-                loadedPhotos++;
-                
-                // Once all photos are loaded, render the PDF
-                if (loadedPhotos === totalPhotoFields) {
-                  renderPDFCards();
-                }
-              };
-              
-              photoImg.onerror = () => {
-                console.error(`Failed to load photo: ${photoFilename}`);
-                loadedPhotos++;
-                // Continue even if some photos fail to load
-                if (loadedPhotos === totalPhotoFields) {
-                  renderPDFCards();
-                }
-              };
-            }
+              // Once all photos are loaded, render the PDF
+              if (loadedPhotos === totalPhotoFields) {
+                renderPDFCards();
+              }
+            };
+            
+            photoImg.onerror = (e) => {
+              console.error(`Failed to load photo: ${photoPath}`, e);
+              loadedPhotos++;
+              // Continue even if some photos fail to load
+              if (loadedPhotos === totalPhotoFields) {
+                renderPDFCards();
+              }
+            };
           });
         });
         
@@ -144,9 +152,12 @@ export const generatePDF = (
               // If this is a photo field, handle differently
               if (field.isPhoto) {
                 const photoFilename = record[field.field];
-                if (!photoFilename || !photoCache[photoFilename]) return;
+                if (!photoFilename) return;
                 
-                const photoImg = photoCache[photoFilename];
+                const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+                const photoImg = photoCache[cacheKey];
+                if (!photoImg) return;
+                
                 const photoX = x + (field.x * scale);
                 const photoY = y + (field.y * scale);
                 
@@ -225,8 +236,12 @@ export const generatePDF = (
               // Clean the text value - remove unwanted quotes
               const cleanedValue = value.replace(/^"|"$/g, '');
               
-              // Add the text to the PDF
-              pdf.text(cleanedValue, xPos, yPos);
+              // Get available width for text wrapping
+              const maxWidth = CARD_DIMENSIONS[orientation].width - (field.x * scale) - 2; // 2mm margin
+              
+              // Add the text to the PDF with word wrapping to prevent overlap
+              const splitText = pdf.splitTextToSize(cleanedValue, maxWidth);
+              pdf.text(splitText, xPos, yPos);
             });
           });
 
