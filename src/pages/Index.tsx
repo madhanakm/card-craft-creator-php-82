@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +9,6 @@ import CardPreview from "@/components/CardPreview";
 import { useToast } from "@/components/ui/use-toast";
 import { ChevronLeft, ChevronRight, Download, Folder } from "lucide-react";
 import { CardField } from "@/utils/pdfGenerator";
-import { Input } from "@/components/ui/input";
 
 const Index = () => {
   const { toast } = useToast();
@@ -37,13 +37,18 @@ const Index = () => {
         console.log("Files selected:", files?.length);
         
         if (files && files.length > 0) {
-          // Get the path to the folder - this is the folder name only
-          const path = files[0].webkitRelativePath.split('/')[0];
-          console.log("Selected folder path:", path);
-          setPhotoFolder(path);
+          // Get the first file's path
+          const firstFilePath = files[0].webkitRelativePath;
+          // Extract folder name (the part before the first slash)
+          const folderName = firstFilePath.split('/')[0];
+          console.log("Selected folder:", folderName);
+          
+          // Set the folder path
+          setPhotoFolder(folderName);
+          
           toast({
             title: "Photo Folder Selected",
-            description: `Selected folder: ${path} (${files.length} files)`,
+            description: `Selected folder: ${folderName} (${files.length} files)`,
           });
         }
       };
@@ -208,6 +213,7 @@ const Index = () => {
                 <li>The first row should contain the field names</li>
                 <li>Each row after that represents one ID card</li>
                 <li>For photo fields, include the filename in the CSV</li>
+                <li>Photo fields should be in the last columns of the CSV</li>
                 <li>For fields with special characters/commas, put them in the last column</li>
                 <li>Use hex color codes (e.g., #FF0000) for text colors</li>
               </ul>
@@ -284,7 +290,7 @@ const Index = () => {
               <h2 className="text-xl font-semibold mb-4">Card Preview</h2>
               
               {/* Photo folder selection */}
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 className="text-sm font-medium mb-2">Photo Directory</h3>
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
@@ -296,13 +302,14 @@ const Index = () => {
                     >
                       <Folder className="h-4 w-4 mr-1" /> Select Folder
                     </Button>
-                    <span className="text-xs text-gray-500 truncate">
-                      {photoFolder ? photoFolder : "No folder selected"}
-                    </span>
                   </div>
-                  {photoFolder && (
-                    <p className="text-xs text-blue-600">
-                      Photo folder selected: {photoFolder}
+                  {photoFolder ? (
+                    <p className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
+                      Photo folder selected: <strong>{photoFolder}</strong>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      No folder selected. Photos won't be displayed.
                     </p>
                   )}
                 </div>

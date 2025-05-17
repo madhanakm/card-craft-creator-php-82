@@ -117,7 +117,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           ...field, 
           isPhoto: !field.isPhoto,
           // Set default values if toggling to photo
-          photoShape: field.isPhoto ? undefined : "square" as "square" | "circle" | undefined,
+          photoShape: field.isPhoto ? undefined : "square",
           photoWidth: field.isPhoto ? undefined : 60,
           photoHeight: field.isPhoto ? undefined : 60
         };
@@ -212,19 +212,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                   >
                     <Square className={cn("h-4 w-4", field.isPhoto ? "text-blue-500" : "text-gray-500")} />
                   </Toggle>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => toggleFontWeight(field.id)}
-                    className={cn(
-                      "h-8 w-8 p-0",
-                      field.fontWeight === "bold" && "bg-gray-100"
-                    )}
-                    disabled={field.isPhoto}
-                  >
-                    <Bold className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
               
@@ -310,6 +297,23 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                       maxLength={7}
                       placeholder="#000000"
                     />
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-3">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => toggleFontWeight(field.id)}
+                      className={cn(
+                        "h-8 w-8 p-0",
+                        field.fontWeight === "bold" && "bg-gray-100"
+                      )}
+                    >
+                      <Bold className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs">
+                      {field.fontWeight === "bold" ? "Bold text" : "Regular text"}
+                    </span>
                   </div>
                 </>
               )}

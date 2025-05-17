@@ -37,16 +37,21 @@ const CardPreview: React.FC<CardPreviewProps> = ({
     // If no photo fields, don't do anything
     if (photoFields.length === 0) return;
     
+    // Clear loaded photos when folder changes
+    if (photoFolder) {
+      setLoadedPhotos({});
+    }
+    
     // For each photo field, load the image if possible
     photoFields.forEach(field => {
       const photoFilename = data[field.field];
       if (!photoFilename) return;
       
-      // Don't reload if already loaded with same path
+      // Create the photo path based on folder
       const photoPath = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
       const cacheKey = `${photoFolder || ""}:${photoFilename}`;
       
-      // Only load if not already loaded or if folder changed
+      // Only load if not already loaded
       if (loadedPhotos[cacheKey]) return;
       
       console.log("Attempting to load photo:", photoPath);
@@ -100,8 +105,26 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             const cacheKey = `${photoFolder || ""}:${photoFilename}`;
             const photoSrc = loadedPhotos[cacheKey];
             
-            // Skip if no photo data
-            if (!photoSrc) return null;
+            // Show a placeholder if photo not loaded yet
+            if (!photoSrc) {
+              return (
+                <div
+                  key={field.id}
+                  className={cn(
+                    "absolute overflow-hidden bg-gray-200 flex items-center justify-center",
+                    field.photoShape === "circle" && "rounded-full"
+                  )}
+                  style={{
+                    left: `${field.x * scaleFactor}px`,
+                    top: `${field.y * scaleFactor}px`,
+                    width: `${(field.photoWidth || 60) * scaleFactor}px`,
+                    height: `${(field.photoHeight || 60) * scaleFactor}px`,
+                  }}
+                >
+                  <span className="text-xs text-gray-500">Loading...</span>
+                </div>
+              );
+            }
             
             return (
               <div
