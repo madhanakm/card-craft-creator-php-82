@@ -117,7 +117,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           ...field, 
           isPhoto: !field.isPhoto,
           // Set default values if toggling to photo
-          photoShape: field.isPhoto ? undefined : "square",
+          photoShape: field.isPhoto ? undefined : "square" as "square" | "circle" | undefined,
           photoWidth: field.isPhoto ? undefined : 60,
           photoHeight: field.isPhoto ? undefined : 60
         };
