@@ -29,6 +29,18 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
   
+  // Debug the incoming data
+  useEffect(() => {
+    console.log("CardPreview props:", { photoFolder, data });
+    const photoFields = fields.filter(f => f.isPhoto);
+    if (photoFields.length > 0) {
+      console.log("Photo fields:", photoFields);
+      photoFields.forEach(field => {
+        console.log(`Field ${field.field} has value:`, data[field.field]);
+      });
+    }
+  }, [fields, data, photoFolder]);
+  
   // Load photos when component mounts or when photoFolder/data changes
   useEffect(() => {
     // Find photo fields and try to load their images
@@ -39,51 +51,66 @@ const CardPreview: React.FC<CardPreviewProps> = ({
     
     // Clear loaded photos when folder changes
     if (photoFolder) {
+      console.log("Photo folder changed, clearing loaded photos");
       setLoadedPhotos({});
     }
     
     // For each photo field, load the image if possible
     photoFields.forEach(field => {
       const photoFilename = data[field.field];
-      if (!photoFilename) return;
+      if (!photoFilename) {
+        console.log(`No filename for field ${field.field}`);
+        return;
+      }
       
       // Create the photo path based on folder
-      const photoPath = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
-      const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+      const photoPath = photoFolder 
+        ? `${photoFolder}/${photoFilename.trim()}`
+        : photoFilename.trim();
+        
+      const cacheKey = `${photoFolder || ""}:${photoFilename.trim()}`;
       
       // Only load if not already loaded
-      if (loadedPhotos[cacheKey]) return;
+      if (loadedPhotos[cacheKey]) {
+        console.log(`Using cached photo for ${photoPath}`);
+        return;
+      }
       
       console.log("Attempting to load photo:", photoPath);
       
-      // Load the image
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = photoPath;
-      
-      img.onload = () => {
-        console.log("Photo loaded successfully:", photoPath);
-        // Create a data URL from the loaded image
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+      // Create a blob URL from the file if it exists
+      try {
+        // Load the image
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = photoPath;
         
-        ctx.drawImage(img, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg');
+        img.onload = () => {
+          console.log("Photo loaded successfully:", photoPath);
+          // Create a data URL from the loaded image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg');
+          
+          setLoadedPhotos(prev => ({
+            ...prev,
+            [cacheKey]: dataUrl
+          }));
+        };
         
-        setLoadedPhotos(prev => ({
-          ...prev,
-          [cacheKey]: dataUrl
-        }));
-      };
-      
-      img.onerror = (e) => {
-        console.error(`Failed to load photo: ${photoPath}`, e);
-      };
+        img.onerror = (e) => {
+          console.error(`Failed to load photo: ${photoPath}`, e);
+        };
+      } catch (error) {
+        console.error("Error loading photo:", error);
+      }
     });
-  }, [data, photoFolder, fields]);
+  }, [data, photoFolder, fields, loadedPhotos]);
 
   return (
     <div className="flex flex-col items-center">
@@ -102,7 +129,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           // Check if this is a photo field
           if (field.isPhoto) {
             const photoFilename = data[field.field];
-            const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+            const cacheKey = `${photoFolder || ""}:${photoFilename?.trim()}`;
             const photoSrc = loadedPhotos[cacheKey];
             
             // Show a placeholder if photo not loaded yet
