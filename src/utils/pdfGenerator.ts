@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -19,17 +18,25 @@ export interface CardField {
   photoHeight?: number;
 }
 
-const normalizePhotoFilename = (filename: string): string => {
-  if (!filename) return filename;
+const normalizePhotoFilename = (filename: string): string[] => {
+  if (!filename) return [];
   
   const trimmed = filename.trim();
   const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
   
   if (!hasExtension) {
-    return `${trimmed}.jpg`;
+    // Return multiple possible extensions
+    return [
+      `${trimmed}.jpg`,
+      `${trimmed}.JPG`,
+      `${trimmed}.png`,
+      `${trimmed}.PNG`,
+      `${trimmed}.jpeg`,
+      `${trimmed}.JPEG`
+    ];
   }
   
-  return trimmed;
+  return [trimmed];
 };
 
 const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | null): Promise<string | null> => {
@@ -37,25 +44,25 @@ const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | nu
     return null;
   }
 
-  const normalizedFilename = normalizePhotoFilename(filename);
-  const cacheKey = `file:${normalizedFilename}`;
+  const possibleFilenames = normalizePhotoFilename(filename);
+  const cacheKey = `file:${filename}`;
   
   if (photoCache.has(cacheKey)) {
     return photoCache.get(cacheKey) || null;
   }
 
   try {
-    // Find the file that matches the filename (try both original and normalized)
+    // Find the file that matches any of the possible filenames
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      if (file.name === filename || file.name === filename.trim() || file.name === normalizedFilename) {
+      if (file.name === filename || file.name === filename.trim() || possibleFilenames.includes(file.name)) {
         const base64Image = await convertFileToBase64(file);
         photoCache.set(cacheKey, base64Image);
         return base64Image;
       }
     }
     
-    console.warn(`Photo file not found: ${filename} (tried: ${normalizedFilename})`);
+    console.warn(`Photo file not found: ${filename} (tried extensions: ${possibleFilenames.join(', ')})`);
     return null;
   } catch (error) {
     console.error(`Error loading image ${filename}:`, error);
