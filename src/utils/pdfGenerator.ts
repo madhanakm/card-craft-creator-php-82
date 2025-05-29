@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -116,10 +115,7 @@ const generatePDF = async (
     }
 
     if (records.indexOf(record) < records.length - 1) {
-      doc.addPage({
-        orientation,
-        format: [85.6 * 3.7795275591, 53.98 * 3.7795275591]
-      });
+      doc.addPage();
     }
   }
 
