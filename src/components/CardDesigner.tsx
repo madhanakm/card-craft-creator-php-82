@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,12 @@ interface CardDesignerProps {
   onFieldsUpdate: (fields: CardField[]) => void;
   backgroundImage: string;
   orientation: "portrait" | "landscape";
+}
+
+interface AlignmentGuide {
+  id: string;
+  type: 'horizontal' | 'vertical';
+  position: number;
 }
 
 const FONT_FAMILIES = [
@@ -37,6 +43,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [showAlignmentGuides, setShowAlignmentGuides] = useState(true);
+  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
+  const [isDraggingGuide, setIsDraggingGuide] = useState<string | null>(null);
   
   // Card dimensions - same as preview and PDF
   const cardDimensions = orientation === "portrait" 
@@ -48,6 +56,76 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const snapToGridIfEnabled = (value: number) => {
     if (!snapToGrid) return value;
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  };
+
+  const addAlignmentGuide = (type: 'horizontal' | 'vertical') => {
+    const newGuide: AlignmentGuide = {
+      id: `guide-${Date.now()}`,
+      type,
+      position: type === 'horizontal' ? cardDimensions.height / 2 : cardDimensions.width / 2
+    };
+    setAlignmentGuides([...alignmentGuides, newGuide]);
+  };
+
+  const removeAlignmentGuide = (guideId: string) => {
+    setAlignmentGuides(alignmentGuides.filter(g => g.id !== guideId));
+  };
+
+  const handleGuideMouseDown = (e: React.MouseEvent, guideId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingGuide(guideId);
+  };
+
+  const handleGuideMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingGuide) return;
+    
+    const guide = alignmentGuides.find(g => g.id === isDraggingGuide);
+    if (!guide) return;
+    
+    const containerRect = document.getElementById('card-designer-container')?.getBoundingClientRect();
+    if (!containerRect) return;
+    
+    let newPosition: number;
+    
+    if (guide.type === 'horizontal') {
+      newPosition = e.clientY - containerRect.top - 20; // Account for ruler
+      newPosition = Math.max(0, Math.min(newPosition, cardDimensions.height));
+    } else {
+      newPosition = e.clientX - containerRect.left - 20; // Account for ruler
+      newPosition = Math.max(0, Math.min(newPosition, cardDimensions.width));
+    }
+    
+    setAlignmentGuides(alignmentGuides.map(g => 
+      g.id === isDraggingGuide ? { ...g, position: newPosition } : g
+    ));
+  };
+
+  const handleGuideMouseUp = () => {
+    setIsDraggingGuide(null);
+  };
+
+  const snapToGuides = (x: number, y: number, threshold = 5) => {
+    let snappedX = x;
+    let snappedY = y;
+    
+    // Snap to vertical guides
+    for (const guide of alignmentGuides) {
+      if (guide.type === 'vertical' && Math.abs(x - guide.position) <= threshold) {
+        snappedX = guide.position;
+        break;
+      }
+    }
+    
+    // Snap to horizontal guides
+    for (const guide of alignmentGuides) {
+      if (guide.type === 'horizontal' && Math.abs(y - guide.position) <= threshold) {
+        snappedY = guide.position;
+        break;
+      }
+    }
+    
+    return { x: snappedX, y: snappedY };
   };
 
   const handleDragStart = (e: React.MouseEvent, fieldId: string) => {
@@ -76,7 +154,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     let newX = e.clientX - containerRect.left - dragOffset.x - 20; // Account for ruler width
     let newY = e.clientY - containerRect.top - dragOffset.y - 20; // Account for ruler height
     
-    // Snap to grid if enabled
+    // Snap to guides first
+    const snapped = snapToGuides(newX, newY);
+    newX = snapped.x;
+    newY = snapped.y;
+    
+    // Then snap to grid if enabled
     newX = snapToGridIfEnabled(newX);
     newY = snapToGridIfEnabled(newY);
     
@@ -277,12 +360,33 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         <Toggle pressed={snapToGrid} onPressedChange={setSnapToGrid} size="sm">
           Snap
         </Toggle>
+        <Toggle pressed={showAlignmentGuides} onPressedChange={setShowAlignmentGuides} size="sm">
+          Guides
+        </Toggle>
+        <div className="w-px h-6 bg-gray-300 mx-2" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => addAlignmentGuide('vertical')}
+          title="Add vertical guide"
+        >
+          <Move className="h-4 w-4 rotate-90" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => addAlignmentGuide('horizontal')}
+          title="Add horizontal guide"
+        >
+          <Move className="h-4 w-4" />
+        </Button>
         <div className="w-px h-6 bg-gray-300 mx-2" />
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={() => alignFields('left')}
           disabled={!activeField}
+          title="Align left"
         >
           <AlignCenter className="h-4 w-4 rotate-90" />
         </Button>
@@ -291,6 +395,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           size="sm" 
           onClick={() => alignFields('center')}
           disabled={!activeField}
+          title="Align center"
         >
           <AlignCenter className="h-4 w-4" />
         </Button>
@@ -299,6 +404,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           size="sm" 
           onClick={() => alignFields('right')}
           disabled={!activeField}
+          title="Align right"
         >
           <AlignCenter className="h-4 w-4 -rotate-90" />
         </Button>
@@ -325,12 +431,52 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
-          onMouseMove={handleDrag}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={handleDragEnd}
+          onMouseMove={(e) => {
+            handleDrag(e);
+            handleGuideMouseMove(e);
+          }}
+          onMouseUp={() => {
+            handleDragEnd();
+            handleGuideMouseUp();
+          }}
+          onMouseLeave={() => {
+            handleDragEnd();
+            handleGuideMouseUp();
+          }}
         >
           {/* Grid overlay */}
           {generateGridLines()}
+          
+          {/* Alignment guides */}
+          {showAlignmentGuides && alignmentGuides.map((guide) => (
+            <div
+              key={guide.id}
+              className={cn(
+                "absolute cursor-move select-none",
+                guide.type === 'horizontal' 
+                  ? "border-t-2 border-cyan-500 w-full hover:border-cyan-600" 
+                  : "border-l-2 border-cyan-500 h-full hover:border-cyan-600",
+                isDraggingGuide === guide.id && "border-cyan-700"
+              )}
+              style={{
+                [guide.type === 'horizontal' ? 'top' : 'left']: `${guide.position}px`,
+                [guide.type === 'horizontal' ? 'left' : 'top']: 0,
+                zIndex: 5
+              }}
+              onMouseDown={(e) => handleGuideMouseDown(e, guide.id)}
+              onDoubleClick={() => removeAlignmentGuide(guide.id)}
+              title={`${guide.type} guide - double-click to remove`}
+            >
+              <div 
+                className={cn(
+                  "absolute bg-cyan-500 text-white text-xs px-1 rounded",
+                  guide.type === 'horizontal' ? "-top-5 left-2" : "-left-8 top-2"
+                )}
+              >
+                {Math.round(guide.position)}
+              </div>
+            </div>
+          ))}
           
           {/* Fields */}
           {fields.map((field) => (
