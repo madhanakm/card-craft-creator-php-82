@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import { useState, useEffect } from "react";
@@ -28,20 +27,35 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
   
+  // Function to normalize photo filename by adding .jpg if no extension
+  const normalizePhotoFilename = (filename: string): string => {
+    if (!filename) return filename;
+    
+    const trimmed = filename.trim();
+    const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
+    
+    if (!hasExtension) {
+      return `${trimmed}.jpg`;
+    }
+    
+    return trimmed;
+  };
+  
   // Load photo from selected files
   const loadPhotoFromFiles = async (filename: string): Promise<string | null> => {
     if (!selectedFiles || !filename) return null;
     
-    console.log("Looking for photo:", filename, "in", selectedFiles.length, "files");
+    const normalizedFilename = normalizePhotoFilename(filename);
+    console.log("Looking for photo:", filename, "normalized to:", normalizedFilename, "in", selectedFiles.length, "files");
     
-    // Find the file that matches the filename
+    // Find the file that matches the filename (try both original and normalized)
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const fileName = file.name;
       
-      console.log("Checking file:", fileName, "against:", filename);
+      console.log("Checking file:", fileName, "against:", filename, "and", normalizedFilename);
       
-      if (fileName === filename || fileName === filename.trim()) {
+      if (fileName === filename || fileName === filename.trim() || fileName === normalizedFilename) {
         try {
           const objectURL = URL.createObjectURL(file);
           console.log("Found and loaded photo:", fileName);
@@ -53,7 +67,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       }
     }
     
-    console.log("Photo not found:", filename);
+    console.log("Photo not found:", filename, "(tried:", normalizedFilename, ")");
     return null;
   };
   
@@ -72,7 +86,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
         const photoFilename = data[field.field]?.trim();
         if (!photoFilename) continue;
         
-        const cacheKey = `file:${photoFilename}`;
+        const normalizedFilename = normalizePhotoFilename(photoFilename);
+        const cacheKey = `file:${normalizedFilename}`;
         
         // Only load if not already loaded
         if (loadedPhotos[cacheKey]) {
@@ -120,7 +135,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           // Check if this is a photo field
           if (field.isPhoto) {
             const photoFilename = data[field.field]?.trim() || "";
-            const cacheKey = `file:${photoFilename}`;
+            const normalizedFilename = normalizePhotoFilename(photoFilename);
+            const cacheKey = `file:${normalizedFilename}`;
             const photoSrc = loadedPhotos[cacheKey];
             
             // Show a placeholder if photo not loaded yet

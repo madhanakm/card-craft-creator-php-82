@@ -19,29 +19,43 @@ export interface CardField {
   photoHeight?: number;
 }
 
+const normalizePhotoFilename = (filename: string): string => {
+  if (!filename) return filename;
+  
+  const trimmed = filename.trim();
+  const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
+  
+  if (!hasExtension) {
+    return `${trimmed}.jpg`;
+  }
+  
+  return trimmed;
+};
+
 const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | null): Promise<string | null> => {
   if (!filename || !selectedFiles) {
     return null;
   }
 
-  const cacheKey = `file:${filename}`;
+  const normalizedFilename = normalizePhotoFilename(filename);
+  const cacheKey = `file:${normalizedFilename}`;
   
   if (photoCache.has(cacheKey)) {
     return photoCache.get(cacheKey) || null;
   }
 
   try {
-    // Find the file that matches the filename
+    // Find the file that matches the filename (try both original and normalized)
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      if (file.name === filename || file.name === filename.trim()) {
+      if (file.name === filename || file.name === filename.trim() || file.name === normalizedFilename) {
         const base64Image = await convertFileToBase64(file);
         photoCache.set(cacheKey, base64Image);
         return base64Image;
       }
     }
     
-    console.warn(`Photo file not found: ${filename}`);
+    console.warn(`Photo file not found: ${filename} (tried: ${normalizedFilename})`);
     return null;
   } catch (error) {
     console.error(`Error loading image ${filename}:`, error);
@@ -65,7 +79,6 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 };
 
 const addCircularImage = (doc: jsPDF, imageData: string, x: number, y: number, width: number, height: number) => {
-  // Create a circular clipping path
   const centerX = x + width / 2;
   const centerY = y + height / 2;
   const radius = Math.min(width, height) / 2;
@@ -73,12 +86,12 @@ const addCircularImage = (doc: jsPDF, imageData: string, x: number, y: number, w
   // Save the current graphics state
   doc.saveGraphicsState();
   
-  // Create circular clipping path
-  doc.circle(centerX, centerY, radius, 'S');
-  doc.clip();
+  // Create a circular clipping mask using ellipse (more reliable than circle)
+  doc.ellipse(centerX, centerY, radius, radius, 'S');
+  doc.clip('evenodd');
   
-  // Add the image (it will be clipped to the circle)
-  doc.addImage(imageData, 'PNG', x, y, width, height);
+  // Add the image within the clipping mask
+  doc.addImage(imageData, 'JPEG', x, y, width, height);
   
   // Restore the graphics state
   doc.restoreGraphicsState();
@@ -126,11 +139,11 @@ const generatePDF = async (
           const imageHeight = field.photoHeight || 60;
           
           if (field.photoShape === "circle") {
-            // Use circular clipping for circle photos
+            // Use the improved circular clipping function
             addCircularImage(doc, photoBase64, field.x, field.y, imageWidth, imageHeight);
           } else {
             // Regular square/rectangle photo
-            doc.addImage(photoBase64, 'PNG', field.x, field.y, imageWidth, imageHeight);
+            doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
