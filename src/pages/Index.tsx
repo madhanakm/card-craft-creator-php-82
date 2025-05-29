@@ -9,6 +9,19 @@ import { useToast } from "@/components/ui/use-toast";
 import { ChevronLeft, ChevronRight, Download, Folder } from "lucide-react";
 import { CardField } from "@/utils/pdfGenerator";
 
+// Global variable to store selected files for PDF generation
+declare global {
+  interface Window {
+    generatePDF: (
+      records: Record<string, string>[],
+      fields: CardField[],
+      backgroundImage: string,
+      orientation: 'portrait' | 'landscape',
+      selectedFiles?: FileList | null
+    ) => Promise<void>;
+  }
+}
+
 const Index = () => {
   const { toast } = useToast();
   const [csvData, setCsvData] = useState<{ headers: string[]; records: Record<string, string>[]; }>({ headers: [], records: [] });
@@ -20,13 +33,13 @@ const Index = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [previewsPerPage, setPreviewsPerPage] = useState(5);
   const [photoFolder, setPhotoFolder] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
   // Handle file selector for photo folder with improved functionality
   const handlePhotoFolderSelect = () => {
     console.log("Photo folder selection triggered");
     
     try {
-      // Create a file input dynamically
       const input = document.createElement('input');
       input.type = 'file';
       input.webkitdirectory = true;
@@ -37,14 +50,14 @@ const Index = () => {
         console.log("Files selected:", files?.length);
         
         if (files && files.length > 0) {
-          // Get the folder path from the first file
           const firstFilePath = files[0].webkitRelativePath;
           const folderPath = firstFilePath.substring(0, firstFilePath.lastIndexOf('/'));
           
           console.log("Selected folder path:", folderPath);
+          console.log("Files:", Array.from(files).map(f => f.name));
           
-          // Set the folder path
           setPhotoFolder(folderPath);
+          setSelectedFiles(files);
           
           toast({
             title: "Photo Folder Selected",
@@ -125,7 +138,7 @@ const Index = () => {
     setIsGeneratingPDF(true);
     
     try {
-      await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation, photoFolder);
+      await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation, selectedFiles);
       toast({
         title: "Success",
         description: `Generated PDF with ${csvData.records.length} ID cards.`,
@@ -308,7 +321,7 @@ const Index = () => {
                   </div>
                   {photoFolder ? (
                     <p className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
-                      Photo folder selected: <strong>{photoFolder}</strong>
+                      Photo folder selected: <strong>{photoFolder}</strong> ({selectedFiles?.length || 0} files)
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500">
@@ -352,6 +365,7 @@ const Index = () => {
                 data={csvData.records[currentPreviewIndex] || {}}
                 orientation={orientation}
                 photoFolder={photoFolder}
+                selectedFiles={selectedFiles}
               />
               
               <div className="mt-6">

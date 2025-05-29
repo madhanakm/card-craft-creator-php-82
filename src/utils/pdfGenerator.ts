@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -18,48 +19,48 @@ export interface CardField {
   photoHeight?: number;
 }
 
-const loadPhotoFromFolder = async (filename: string, photoFolder: string): Promise<string | null> => {
-  if (!filename || !photoFolder) {
+const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | null): Promise<string | null> => {
+  if (!filename || !selectedFiles) {
     return null;
   }
 
-  const fullPath = `${photoFolder}/${filename}`;
-
-  if (photoCache.has(fullPath)) {
-    return photoCache.get(fullPath) || null;
+  const cacheKey = `file:${filename}`;
+  
+  if (photoCache.has(cacheKey)) {
+    return photoCache.get(cacheKey) || null;
   }
 
   try {
-    const base64Image = await loadImageAsBase64(fullPath);
-    photoCache.set(fullPath, base64Image);
-    return base64Image;
+    // Find the file that matches the filename
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      if (file.name === filename || file.name === filename.trim()) {
+        const base64Image = await convertFileToBase64(file);
+        photoCache.set(cacheKey, base64Image);
+        return base64Image;
+      }
+    }
+    
+    console.warn(`Photo file not found: ${filename}`);
+    return null;
   } catch (error) {
-    console.error(`Error loading image ${fullPath}:`, error);
+    console.error(`Error loading image ${filename}:`, error);
     return null;
   }
 };
 
-const loadImageAsBase64 = (src: string): Promise<string> => {
+const convertFileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.setAttribute('crossOrigin', 'anonymous');
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to convert file to base64'));
       }
-      ctx.drawImage(img, 0, 0);
-      const dataURL = canvas.toDataURL('image/png');
-      resolve(dataURL);
     };
-    img.onerror = (error) => {
-      reject(error);
-    };
-    img.src = src;
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 };
 
@@ -68,7 +69,7 @@ const generatePDF = async (
   fields: CardField[],
   backgroundImage: string,
   orientation: 'portrait' | 'landscape' = 'portrait',
-  photoFolder: string = ''
+  selectedFiles: FileList | null = null
 ) => {
   const doc = new jsPDF({
     orientation,
@@ -94,7 +95,7 @@ const generatePDF = async (
       
       // Check if the field is a photo field
       if (field.isPhoto) {
-        const photoBase64 = await loadPhotoFromFolder(value, photoFolder);
+        const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
           const imageWidth = field.photoWidth || 50;
           const imageHeight = field.photoHeight || 50;
