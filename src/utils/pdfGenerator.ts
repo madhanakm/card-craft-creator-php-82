@@ -78,23 +78,43 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const addCircularImage = (doc: jsPDF, imageData: string, x: number, y: number, width: number, height: number) => {
-  const centerX = x + width / 2;
-  const centerY = y + height / 2;
-  const radius = Math.min(width, height) / 2;
-  
-  // Save the current graphics state
-  doc.saveGraphicsState();
-  
-  // Create a circular clipping path
-  doc.circle(centerX, centerY, radius);
-  doc.clip();
-  
-  // Add the image within the clipping mask
-  doc.addImage(imageData, 'JPEG', x, y, width, height);
-  
-  // Restore the graphics state to remove the clipping mask
-  doc.restoreGraphicsState();
+// Create a circular canvas from an image
+const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      
+      // Set canvas size
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Create circular clipping path
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) / 2;
+      
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.clip();
+      
+      // Draw the image
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Convert to base64
+      const circularImageData = canvas.toDataURL('image/jpeg', 0.9);
+      resolve(circularImageData);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = imageData;
+  });
 };
 
 const generatePDF = async (
@@ -139,8 +159,15 @@ const generatePDF = async (
           const imageHeight = field.photoHeight || 60;
           
           if (field.photoShape === "circle") {
-            // Use the improved circular clipping function
-            addCircularImage(doc, photoBase64, field.x, field.y, imageWidth, imageHeight);
+            // Create a circular version of the image
+            try {
+              const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
+              doc.addImage(circularImageData, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+            } catch (error) {
+              console.error('Error creating circular image:', error);
+              // Fallback to square image
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+            }
           } else {
             // Regular square/rectangle photo
             doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
