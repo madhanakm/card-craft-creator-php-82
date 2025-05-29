@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,11 +34,21 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [activeField, setActiveField] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [showAlignmentGuides, setShowAlignmentGuides] = useState(true);
   
-  // Card dimensions based on orientation
+  // Card dimensions - same as preview and PDF
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
+
+  const GRID_SIZE = 10; // Snap to 10px grid
+
+  const snapToGridIfEnabled = (value: number) => {
+    if (!snapToGrid) return value;
+    return Math.round(value / GRID_SIZE) * GRID_SIZE;
+  };
 
   const handleDragStart = (e: React.MouseEvent, fieldId: string) => {
     const field = fields.find(f => f.id === fieldId);
@@ -64,8 +73,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     if (!containerRect) return;
     
     // Calculate new position accounting for the offset
-    const newX = e.clientX - containerRect.left - dragOffset.x - 20; // Account for ruler width
-    const newY = e.clientY - containerRect.top - dragOffset.y - 20; // Account for ruler height
+    let newX = e.clientX - containerRect.left - dragOffset.x - 20; // Account for ruler width
+    let newY = e.clientY - containerRect.top - dragOffset.y - 20; // Account for ruler height
+    
+    // Snap to grid if enabled
+    newX = snapToGridIfEnabled(newX);
+    newY = snapToGridIfEnabled(newY);
     
     // Ensure field stays within container boundaries
     const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 100));
@@ -138,7 +151,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         return { 
           ...field, 
           isPhoto: !field.isPhoto,
-          // Set default values if toggling to photo - explicitly set as the required type
+          // Set default values if toggling to photo
           photoShape: field.isPhoto ? undefined : "square" as "square" | "circle",
           photoWidth: field.isPhoto ? undefined : 60,
           photoHeight: field.isPhoto ? undefined : 60
@@ -175,8 +188,122 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
+  const alignFields = (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+    if (!activeField) return;
+    
+    const activeFieldData = fields.find(f => f.id === activeField);
+    if (!activeFieldData) return;
+    
+    const updatedFields = fields.map(field => {
+      if (field.id === activeField) {
+        let newX = field.x;
+        let newY = field.y;
+        
+        switch (alignment) {
+          case 'left':
+            newX = 10;
+            break;
+          case 'center':
+            newX = cardDimensions.width / 2 - 50; // Approximate center
+            break;
+          case 'right':
+            newX = cardDimensions.width - 100;
+            break;
+          case 'top':
+            newY = 10;
+            break;
+          case 'middle':
+            newY = cardDimensions.height / 2;
+            break;
+          case 'bottom':
+            newY = cardDimensions.height - 50;
+            break;
+        }
+        
+        return { ...field, x: snapToGridIfEnabled(newX), y: snapToGridIfEnabled(newY) };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
+  // Generate grid lines
+  const generateGridLines = () => {
+    if (!showGrid) return null;
+    
+    const lines = [];
+    
+    // Vertical lines
+    for (let x = 0; x <= cardDimensions.width; x += GRID_SIZE) {
+      lines.push(
+        <div
+          key={`v-${x}`}
+          className="absolute border-l border-gray-200 opacity-30"
+          style={{
+            left: `${x}px`,
+            top: 0,
+            height: `${cardDimensions.height}px`
+          }}
+        />
+      );
+    }
+    
+    // Horizontal lines
+    for (let y = 0; y <= cardDimensions.height; y += GRID_SIZE) {
+      lines.push(
+        <div
+          key={`h-${y}`}
+          className="absolute border-t border-gray-200 opacity-30"
+          style={{
+            top: `${y}px`,
+            left: 0,
+            width: `${cardDimensions.width}px`
+          }}
+        />
+      );
+    }
+    
+    return lines;
+  };
+
   return (
     <div className="flex flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded-lg">
+        <Toggle pressed={showGrid} onPressedChange={setShowGrid} size="sm">
+          <Grid className="h-4 w-4" />
+        </Toggle>
+        <Toggle pressed={snapToGrid} onPressedChange={setSnapToGrid} size="sm">
+          Snap
+        </Toggle>
+        <div className="w-px h-6 bg-gray-300 mx-2" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => alignFields('left')}
+          disabled={!activeField}
+        >
+          <AlignCenter className="h-4 w-4 rotate-90" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => alignFields('center')}
+          disabled={!activeField}
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => alignFields('right')}
+          disabled={!activeField}
+        >
+          <AlignCenter className="h-4 w-4 -rotate-90" />
+        </Button>
+      </div>
+
       <div className="flex">
         {/* Top ruler */}
         <div className="w-5 h-5"></div>
@@ -202,12 +329,16 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           onMouseUp={handleDragEnd}
           onMouseLeave={handleDragEnd}
         >
+          {/* Grid overlay */}
+          {generateGridLines()}
+          
+          {/* Fields */}
           {fields.map((field) => (
             <div
               key={field.id}
               className={cn(
                 "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
-                activeField === field.id && "border-blue-500",
+                activeField === field.id && "border-blue-500 shadow-lg",
                 field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
               )}
               style={{
@@ -227,9 +358,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
               </span>
             </div>
           ))}
+          
+          {/* Show coordinates for active field */}
+          {activeField && (
+            <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
+              x: {fields.find(f => f.id === activeField)?.x}, y: {fields.find(f => f.id === activeField)?.y}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Field Properties */}
       <div className="bg-gray-50 p-4 rounded-lg mt-4">
         <h3 className="text-lg font-medium mb-4">Field Properties</h3>
         

@@ -20,13 +20,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   photoFolder,
   selectedFiles
 }) => {
-  // Scale factor to fit the preview within its container
-  const scaleFactor = 0.8;
-  
-  // Card dimensions based on orientation
+  // Use exact same dimensions as CardDesigner and PDF
   const cardDimensions = orientation === "portrait" 
-    ? { width: 300 * scaleFactor, height: 480 * scaleFactor } 
-    : { width: 480 * scaleFactor, height: 300 * scaleFactor };
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
     
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
@@ -136,10 +133,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                     field.photoShape === "circle" && "rounded-full"
                   )}
                   style={{
-                    left: `${field.x * scaleFactor}px`,
-                    top: `${field.y * scaleFactor}px`,
-                    width: `${(field.photoWidth || 60) * scaleFactor}px`,
-                    height: `${(field.photoHeight || 60) * scaleFactor}px`,
+                    left: `${field.x}px`,
+                    top: `${field.y}px`,
+                    width: `${field.photoWidth || 60}px`,
+                    height: `${field.photoHeight || 60}px`,
                   }}
                 >
                   <span className="text-xs text-gray-500 text-center px-1">
@@ -157,10 +154,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                   field.photoShape === "circle" && "rounded-full"
                 )}
                 style={{
-                  left: `${field.x * scaleFactor}px`,
-                  top: `${field.y * scaleFactor}px`,
-                  width: `${(field.photoWidth || 60) * scaleFactor}px`,
-                  height: `${(field.photoHeight || 60) * scaleFactor}px`,
+                  left: `${field.x}px`,
+                  top: `${field.y}px`,
+                  width: `${field.photoWidth || 60}px`,
+                  height: `${field.photoHeight || 60}px`,
                 }}
               >
                 <img 
@@ -172,7 +169,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             );
           }
           
-          // Handle regular text fields
+          // Handle regular text fields - exact same positioning as PDF
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
           
@@ -181,13 +178,13 @@ const CardPreview: React.FC<CardPreviewProps> = ({
               key={field.id}
               className="absolute"
               style={{
-                left: `${field.x * scaleFactor}px`,
-                top: `${field.y * scaleFactor}px`,
-                fontSize: `${field.fontSize * scaleFactor}px`,
+                left: `${field.x}px`,
+                top: `${field.y}px`,
+                fontSize: `${field.fontSize}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
-                maxWidth: `${cardDimensions.width - (field.x * scaleFactor) - 10}px`,
+                maxWidth: `${cardDimensions.width - field.x - 10}px`,
                 wordBreak: "break-word"
               }}
             >
@@ -198,7 +195,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       </div>
       
       <p className="text-sm text-gray-500 italic text-center">
-        Preview shows how the record will appear on the ID card
+        Preview shows exactly how the PDF will appear
       </p>
     </div>
   );

@@ -64,6 +64,26 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+const addCircularImage = (doc: jsPDF, imageData: string, x: number, y: number, width: number, height: number) => {
+  // Create a circular clipping path
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  const radius = Math.min(width, height) / 2;
+  
+  // Save the current graphics state
+  doc.saveGraphicsState();
+  
+  // Create circular clipping path
+  doc.circle(centerX, centerY, radius, 'S');
+  doc.clip();
+  
+  // Add the image (it will be clipped to the circle)
+  doc.addImage(imageData, 'PNG', x, y, width, height);
+  
+  // Restore the graphics state
+  doc.restoreGraphicsState();
+};
+
 const generatePDF = async (
   records: Record<string, string>[],
   fields: CardField[],
@@ -71,10 +91,15 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
+  // Use exact dimensions matching the preview
+  const cardDimensions = orientation === "portrait" 
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
+
   const doc = new jsPDF({
     orientation,
     unit: 'px',
-    format: [85.6 * 3.7795275591, 53.98 * 3.7795275591] // ID card size in mm converted to pixels
+    format: [cardDimensions.width, cardDimensions.height]
   });
 
   for (const record of records) {
@@ -83,7 +108,7 @@ const generatePDF = async (
       img.src = backgroundImage;
       await new Promise((resolve, reject) => {
         img.onload = () => {
-          doc.addImage(img, 'PNG', 0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight());
+          doc.addImage(img, 'PNG', 0, 0, cardDimensions.width, cardDimensions.height);
           resolve(null);
         };
         img.onerror = reject;
@@ -97,21 +122,34 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          const imageWidth = field.photoWidth || 50;
-          const imageHeight = field.photoHeight || 50;
-          doc.addImage(photoBase64, 'PNG', field.x, field.y, imageWidth, imageHeight);
+          const imageWidth = field.photoWidth || 60;
+          const imageHeight = field.photoHeight || 60;
+          
+          if (field.photoShape === "circle") {
+            // Use circular clipping for circle photos
+            addCircularImage(doc, photoBase64, field.x, field.y, imageWidth, imageHeight);
+          } else {
+            // Regular square/rectangle photo
+            doc.addImage(photoBase64, 'PNG', field.x, field.y, imageWidth, imageHeight);
+          }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
           doc.setFont(field.fontFamily, field.fontWeight);
           doc.setFontSize(field.fontSize);
           doc.setTextColor(field.color);
-          doc.text(`Photo Missing: ${field.field}`, field.x, field.y);
+          doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
+        // Handle text fields with exact same positioning as preview
         doc.setFont(field.fontFamily, field.fontWeight);
         doc.setFontSize(field.fontSize);
         doc.setTextColor(field.color);
-        doc.text(value, field.x, field.y);
+        
+        // Clean the value (remove quotes)
+        const cleanedValue = value.replace(/^"|"$/g, '');
+        
+        // Position text exactly as in preview (add fontSize to y for baseline alignment)
+        doc.text(cleanedValue, field.x, field.y + field.fontSize);
       }
     }
 
