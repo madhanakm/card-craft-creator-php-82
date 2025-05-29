@@ -86,14 +86,14 @@ const addCircularImage = (doc: jsPDF, imageData: string, x: number, y: number, w
   // Save the current graphics state
   doc.saveGraphicsState();
   
-  // Create a circular clipping mask using ellipse (more reliable than circle)
-  doc.ellipse(centerX, centerY, radius, radius, 'S');
-  doc.clip('evenodd');
+  // Create a circular clipping path
+  doc.circle(centerX, centerY, radius);
+  doc.clip();
   
   // Add the image within the clipping mask
   doc.addImage(imageData, 'JPEG', x, y, width, height);
   
-  // Restore the graphics state
+  // Restore the graphics state to remove the clipping mask
   doc.restoreGraphicsState();
 };
 
