@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -12,6 +13,10 @@ export interface CardField {
   fontWeight: string;
   fontFamily: string;
   color: string;
+  isPhoto?: boolean;
+  photoShape?: "square" | "circle";
+  photoWidth?: number;
+  photoHeight?: number;
 }
 
 const loadPhotoFromFolder = async (filename: string, photoFolder: string): Promise<string | null> => {
@@ -87,23 +92,25 @@ const generatePDF = async (
 
     for (const field of fields) {
       const value = record[field.field] || '';
-      doc.setFont(field.fontFamily, field.fontWeight);
-      doc.setFontSize(field.fontSize);
-      doc.setTextColor(field.color);
-
+      
       // Check if the field is a photo field
-      if (field.field.toLowerCase().includes('photo') || field.field.toLowerCase().includes('image')) {
+      if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFolder(value, photoFolder);
         if (photoBase64) {
-          //console.log(`Adding image for field ${field.field} at x: ${field.x}, y: ${field.y}`);
-          const imageWidth = 50;
-          const imageHeight = 50;
+          const imageWidth = field.photoWidth || 50;
+          const imageHeight = field.photoHeight || 50;
           doc.addImage(photoBase64, 'PNG', field.x, field.y, imageWidth, imageHeight);
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
+          doc.setFont(field.fontFamily, field.fontWeight);
+          doc.setFontSize(field.fontSize);
+          doc.setTextColor(field.color);
           doc.text(`Photo Missing: ${field.field}`, field.x, field.y);
         }
       } else {
+        doc.setFont(field.fontFamily, field.fontWeight);
+        doc.setFontSize(field.fontSize);
+        doc.setTextColor(field.color);
         doc.text(value, field.x, field.y);
       }
     }
