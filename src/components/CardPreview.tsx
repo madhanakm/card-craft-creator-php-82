@@ -29,17 +29,58 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
   
-  // Debug the incoming data
-  useEffect(() => {
-    console.log("CardPreview props:", { photoFolder, data });
-    const photoFields = fields.filter(f => f.isPhoto);
-    if (photoFields.length > 0) {
-      console.log("Photo fields:", photoFields);
-      photoFields.forEach(field => {
-        console.log(`Field ${field.field} has value:`, data[field.field]);
-      });
+  // Improved photo loading function
+  const loadPhoto = async (photoPath: string, cacheKey: string) => {
+    console.log("Attempting to load photo:", photoPath);
+    
+    try {
+      // Try different loading methods
+      const methods = [
+        () => fetch(photoPath).then(r => r.blob()),
+        () => new Promise<Blob>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "Anonymous";
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('Canvas context not available'));
+              return;
+            }
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Failed to create blob'));
+            }, 'image/jpeg');
+          };
+          img.onerror = () => reject(new Error('Image load failed'));
+          img.src = photoPath;
+        })
+      ];
+      
+      for (const method of methods) {
+        try {
+          const blob = await method();
+          const objectURL = URL.createObjectURL(blob);
+          console.log("Photo loaded successfully:", photoPath);
+          
+          setLoadedPhotos(prev => ({
+            ...prev,
+            [cacheKey]: objectURL
+          }));
+          return;
+        } catch (error) {
+          console.log("Method failed, trying next:", error);
+        }
+      }
+      
+      console.error("All methods failed to load photo:", photoPath);
+    } catch (error) {
+      console.error("Error during photo loading:", error);
     }
-  }, [fields, data, photoFolder]);
+  };
   
   // Load photos when component mounts or when photoFolder/data changes
   useEffect(() => {
@@ -77,59 +118,9 @@ const CardPreview: React.FC<CardPreviewProps> = ({
         return;
       }
       
-      console.log("Attempting to load photo:", photoPath);
-      
-      // Try loading the image directly from file path
-      try {
-        fetch(photoPath)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`Failed to fetch image: ${response.status}`);
-            }
-            return response.blob();
-          })
-          .then(blob => {
-            const objectURL = URL.createObjectURL(blob);
-            console.log("Photo loaded successfully:", photoPath);
-            setLoadedPhotos(prev => ({
-              ...prev,
-              [cacheKey]: objectURL
-            }));
-          })
-          .catch(error => {
-            console.error(`Fetch error for ${photoPath}:`, error);
-            
-            // Fallback to direct image loading
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            img.src = photoPath;
-            
-            img.onload = () => {
-              console.log("Fallback photo loaded successfully:", photoPath);
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return;
-              
-              ctx.drawImage(img, 0, 0);
-              const dataUrl = canvas.toDataURL('image/jpeg');
-              
-              setLoadedPhotos(prev => ({
-                ...prev,
-                [cacheKey]: dataUrl
-              }));
-            };
-            
-            img.onerror = (e) => {
-              console.error(`Both methods failed to load photo: ${photoPath}`, e);
-            };
-          });
-      } catch (error) {
-        console.error("Error during photo loading:", error);
-      }
+      loadPhoto(photoPath, cacheKey);
     });
-  }, [data, photoFolder, fields]);
+  }, [data, photoFolder, fields, loadedPhotos]);
 
   return (
     <div className="flex flex-col items-center">
@@ -158,7 +149,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 <div
                   key={field.id}
                   className={cn(
-                    "absolute overflow-hidden bg-gray-200 flex items-center justify-center",
+                    "absolute overflow-hidden bg-gray-200 flex items-center justify-center border-2 border-dashed border-gray-400",
                     field.photoShape === "circle" && "rounded-full"
                   )}
                   style={{
@@ -168,7 +159,9 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                     height: `${(field.photoHeight || 60) * scaleFactor}px`,
                   }}
                 >
-                  <span className="text-xs text-gray-500">Loading...</span>
+                  <span className="text-xs text-gray-500 text-center px-1">
+                    {cleanFilename ? "Loading..." : "No Photo"}
+                  </span>
                 </div>
               );
             }
@@ -210,6 +203,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 top: `${field.y * scaleFactor}px`,
                 fontSize: `${field.fontSize * scaleFactor}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
+                fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
                 maxWidth: `${cardDimensions.width - (field.x * scaleFactor) - 10}px`,
                 wordBreak: "break-word"

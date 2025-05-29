@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +21,7 @@ const Index = () => {
   const [previewsPerPage, setPreviewsPerPage] = useState(5);
   const [photoFolder, setPhotoFolder] = useState<string>("");
 
-  // Handle file selector for photo folder
+  // Handle file selector for photo folder with improved functionality
   const handlePhotoFolderSelect = () => {
     console.log("Photo folder selection triggered");
     
@@ -30,25 +29,26 @@ const Index = () => {
       // Create a file input dynamically
       const input = document.createElement('input');
       input.type = 'file';
-      input.webkitdirectory = true; // Allow directory selection
+      input.webkitdirectory = true;
+      input.multiple = true;
       
       input.onchange = (e: Event) => {
         const files = (e.target as HTMLInputElement).files;
         console.log("Files selected:", files?.length);
         
         if (files && files.length > 0) {
-          // Get the first file's path
+          // Get the folder path from the first file
           const firstFilePath = files[0].webkitRelativePath;
-          // Extract folder name (the part before the first slash)
-          const folderName = firstFilePath.split('/')[0];
-          console.log("Selected folder:", folderName);
+          const folderPath = firstFilePath.substring(0, firstFilePath.lastIndexOf('/'));
+          
+          console.log("Selected folder path:", folderPath);
           
           // Set the folder path
-          setPhotoFolder(folderName);
+          setPhotoFolder(folderPath);
           
           toast({
             title: "Photo Folder Selected",
-            description: `Selected folder: ${folderName} (${files.length} files)`,
+            description: `Selected folder: ${folderPath} (${files.length} files)`,
           });
         }
       };
@@ -67,7 +67,7 @@ const Index = () => {
   const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
     setCsvData(data);
     
-    // Create initial card fields from headers
+    // Create initial card fields from headers with font family
     const initialFields = data.headers.map((header, index) => ({
       id: `field-${index}`,
       field: header,
@@ -75,6 +75,7 @@ const Index = () => {
       y: 50 + (index * 30),
       fontSize: 14,
       fontWeight: "normal",
+      fontFamily: "helvetica",
       color: "#000000"
     }));
     
@@ -82,7 +83,7 @@ const Index = () => {
     setCurrentPreviewIndex(0);
     
     toast({
-      title: "CSV File Uploaded",
+      title: "File Uploaded Successfully",
       description: `Successfully loaded ${data.records.length} records with ${data.headers.length} fields.`,
     });
   };
@@ -159,7 +160,7 @@ const Index = () => {
       
       <Tabs value={activeStep} onValueChange={setActiveStep} className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-8">
-          <TabsTrigger value="upload-data">1. Upload CSV Data</TabsTrigger>
+          <TabsTrigger value="upload-data">1. Upload Data</TabsTrigger>
           <TabsTrigger value="upload-background" disabled={csvData.headers.length === 0}>2. Upload Background</TabsTrigger>
           <TabsTrigger value="design" disabled={!backgroundImage}>3. Design & Download</TabsTrigger>
         </TabsList>
@@ -167,12 +168,12 @@ const Index = () => {
         <TabsContent value="upload-data" className="mt-4">
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold mb-4">Upload CSV File</h2>
+              <h2 className="text-xl font-semibold mb-4">Upload CSV/Excel File</h2>
               <CSVUploader onUpload={handleCSVUpload} />
               
               {csvData.headers.length > 0 && (
                 <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2">CSV Data Preview</h3>
+                  <h3 className="text-lg font-medium mb-2">Data Preview</h3>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead>
@@ -209,22 +210,24 @@ const Index = () => {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-xl font-semibold mb-4">Instructions</h2>
               <ul className="list-disc pl-5 space-y-2">
-                <li>Upload a CSV file with your ID card data</li>
+                <li>Upload a CSV or Excel (.xlsx) file with your ID card data</li>
                 <li>The first row should contain the field names</li>
                 <li>Each row after that represents one ID card</li>
-                <li>For photo fields, include the filename in the CSV</li>
-                <li>Photo fields should be in the last columns of the CSV</li>
-                <li>For fields with special characters/commas, put them in the last column</li>
+                <li>For photo fields, include the filename in the data</li>
+                <li>Photo fields should contain just the filename (e.g., "john.jpg")</li>
+                <li>Select a photo folder to load images from</li>
                 <li>Use hex color codes (e.g., #FF0000) for text colors</li>
+                <li>Font families: Helvetica, Times, Arial, Georgia, Verdana, Courier</li>
               </ul>
               
               <div className="bg-blue-50 p-4 rounded-lg mt-6">
-                <h3 className="text-md font-semibold text-blue-700 mb-2">Special Features</h3>
+                <h3 className="text-md font-semibold text-blue-700 mb-2">New Features</h3>
                 <ul className="list-disc pl-5 space-y-2 text-blue-700">
-                  <li>Photo fields: Mark any field as photo to use images</li>
-                  <li>Photo shape: Choose between circle or square photos</li>
-                  <li>Custom colors: Change text color with hex codes</li>
-                  <li>Photo dimensions: Set custom photo sizes</li>
+                  <li>Excel file support (.xlsx format)</li>
+                  <li>Font family selection for text fields</li>
+                  <li>Ruler guides for precise alignment</li>
+                  <li>Improved photo loading and display</li>
+                  <li>Better PDF output matching preview</li>
                 </ul>
               </div>
             </div>

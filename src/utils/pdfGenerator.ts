@@ -7,7 +7,7 @@ const CARD_DIMENSIONS = {
   landscape: { width: 85.6, height: 53.98 }
 };
 
-// Extended field type to include color, photo properties
+// Extended field type to include color, photo properties, and font family
 export interface CardField {
   id: string; 
   field: string;
@@ -16,11 +16,36 @@ export interface CardField {
   fontSize: number; 
   fontWeight: string;
   color?: string; // Hex color code for text
+  fontFamily?: string; // Font family
   isPhoto?: boolean; // Flag to indicate if field contains photo filename
   photoShape?: "square" | "circle"; // Shape of the photo
   photoWidth?: number; // Width of photo in pixels
   photoHeight?: number; // Height of photo in pixels
 }
+
+// Function to load image from file path with better error handling
+const loadImageFromPath = (imagePath: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    
+    // Try direct file access first
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      // If direct access fails, try with file:// protocol
+      const fileURL = imagePath.startsWith('file://') ? imagePath : `file://${imagePath}`;
+      const fallbackImg = new Image();
+      fallbackImg.crossOrigin = "Anonymous";
+      
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.onerror = () => reject(new Error(`Failed to load image: ${imagePath}`));
+      
+      fallbackImg.src = fileURL;
+    };
+    
+    img.src = imagePath;
+  });
+};
 
 // Function to generate the PDF with all ID cards
 export const generatePDF = (
@@ -53,64 +78,45 @@ export const generatePDF = (
       img.crossOrigin = "Anonymous";
       img.src = backgroundImage;
 
-      img.onload = () => {
-        // Process each record to create an ID card
-        let loadedPhotos = 0;
-        let totalPhotoFields = 0;
-        
-        // Count how many photo fields we need to load
-        records.forEach(record => {
-          fields.filter(f => f.isPhoto).forEach(field => {
-            if (record[field.field]) totalPhotoFields++;
-          });
-        });
-        
-        // If no photos, proceed with rendering
-        if (totalPhotoFields === 0) {
-          renderPDFCards();
-          return;
-        }
-        
-        // Photo preloading for all records
-        const photoCache: Record<string, HTMLImageElement> = {};
-        
-        records.forEach(record => {
-          fields.filter(f => f.isPhoto).forEach(field => {
-            const photoFilename = record[field.field];
-            if (!photoFilename) return;
-            
-            const cacheKey = `${photoFolder || ""}:${photoFilename}`;
-            if (photoCache[cacheKey]) return;
-            
-            const photoImg = new Image();
-            photoImg.crossOrigin = "Anonymous";
-            // Create full path to photo
-            const photoPath = photoFolder ? `${photoFolder}/${photoFilename}` : photoFilename;
-            
-            console.log("PDF generator loading photo:", photoPath);
-            photoImg.src = photoPath;
-            
-            photoImg.onload = () => {
-              console.log("PDF generator photo loaded:", photoPath);
-              photoCache[cacheKey] = photoImg;
-              loadedPhotos++;
+      img.onload = async () => {
+        try {
+          // Photo preloading for all records with improved loading
+          const photoCache: Record<string, HTMLImageElement> = {};
+          const photoPromises: Promise<void>[] = [];
+          
+          records.forEach(record => {
+            fields.filter(f => f.isPhoto).forEach(field => {
+              const photoFilename = record[field.field];
+              if (!photoFilename) return;
               
-              // Once all photos are loaded, render the PDF
-              if (loadedPhotos === totalPhotoFields) {
-                renderPDFCards();
-              }
-            };
-            
-            photoImg.onerror = (e) => {
-              console.error(`Failed to load photo: ${photoPath}`, e);
-              loadedPhotos++;
-              // Continue even if some photos fail to load
-              if (loadedPhotos === totalPhotoFields) {
-                renderPDFCards();
-              }
-            };
+              const cleanFilename = photoFilename.trim();
+              const cacheKey = `${photoFolder || ""}:${cleanFilename}`;
+              if (photoCache[cacheKey]) return;
+              
+              // Create full path to photo
+              const photoPath = photoFolder ? `${photoFolder}/${cleanFilename}` : cleanFilename;
+              
+              const photoPromise = loadImageFromPath(photoPath)
+                .then(photoImg => {
+                  console.log("PDF generator photo loaded:", photoPath);
+                  photoCache[cacheKey] = photoImg;
+                })
+                .catch(error => {
+                  console.error(`Failed to load photo: ${photoPath}`, error);
+                });
+              
+              photoPromises.push(photoPromise);
+            });
           });
-        });
+          
+          // Wait for all photos to load (or fail)
+          await Promise.allSettled(photoPromises);
+          
+          renderPDFCards();
+        } catch (error) {
+          console.error("Error during photo loading:", error);
+          renderPDFCards(); // Continue without photos
+        }
         
         // Function to render PDF cards after all resources are loaded
         function renderPDFCards() {
@@ -154,55 +160,50 @@ export const generatePDF = (
                 const photoFilename = record[field.field];
                 if (!photoFilename) return;
                 
-                const cacheKey = `${photoFolder || ""}:${photoFilename}`;
+                const cleanFilename = photoFilename.trim();
+                const cacheKey = `${photoFolder || ""}:${cleanFilename}`;
                 const photoImg = photoCache[cacheKey];
                 if (!photoImg) return;
                 
                 const photoX = x + (field.x * scale);
                 const photoY = y + (field.y * scale);
                 
-                // Define photo dimensions
+                // Define photo dimensions matching preview
                 const photoWidth = (field.photoWidth || 60) * scale;
                 const photoHeight = (field.photoHeight || 60) * scale;
                 
-                // If circle shape is selected, we need to clip the image
+                // Add the photo image
+                pdf.addImage(
+                  photoImg,
+                  'JPEG',
+                  photoX,
+                  photoY,
+                  photoWidth,
+                  photoHeight
+                );
+                
+                // If circle shape is selected, add a circle overlay
                 if (field.photoShape === "circle") {
-                  // Save current context to restore later
                   pdf.saveGraphicsState();
-                  
-                  // Create a circular clipping path
                   const centerX = photoX + photoWidth / 2;
                   const centerY = photoY + photoHeight / 2;
                   const radius = Math.min(photoWidth, photoHeight) / 2;
                   
-                  // Create circular clipping path (this is basic and might not be perfect)
-                  // jsPDF has limited support for this, so this is a simplified approach
-                  pdf.setDrawColor(0);
+                  // Create a white circle to mask the square photo
                   pdf.setFillColor(255, 255, 255);
-                  pdf.circle(centerX, centerY, radius, "F");
+                  pdf.setDrawColor(255, 255, 255);
                   
-                  // Add the image (it will be clipped by the path)
-                  pdf.addImage(
-                    photoImg,
-                    'JPEG',
-                    photoX,
-                    photoY,
-                    photoWidth,
-                    photoHeight
-                  );
+                  // Draw four rectangles around the circle to create the mask effect
+                  // Top rectangle
+                  pdf.rect(photoX, photoY, photoWidth, centerY - photoY - radius, "F");
+                  // Bottom rectangle  
+                  pdf.rect(photoX, centerY + radius, photoWidth, photoY + photoHeight - centerY - radius, "F");
+                  // Left rectangle
+                  pdf.rect(photoX, centerY - radius, centerX - photoX - radius, radius * 2, "F");
+                  // Right rectangle
+                  pdf.rect(centerX + radius, centerY - radius, photoX + photoWidth - centerX - radius, radius * 2, "F");
                   
-                  // Restore the context
                   pdf.restoreGraphicsState();
-                } else {
-                  // Default square image
-                  pdf.addImage(
-                    photoImg,
-                    'JPEG',
-                    photoX,
-                    photoY,
-                    photoWidth,
-                    photoHeight
-                  );
                 }
                 
                 return;
@@ -213,9 +214,18 @@ export const generatePDF = (
               // Skip empty values
               if (!value) return;
               
-              // Set the font properties
-              pdf.setFontSize(field.fontSize * 0.75); // Adjust font size for PDF
-              pdf.setFont("helvetica", field.fontWeight === "bold" ? "bold" : "normal");
+              // Set the font properties with font family support
+              const fontFamily = field.fontFamily || "helvetica";
+              const fontWeight = field.fontWeight === "bold" ? "bold" : "normal";
+              
+              try {
+                pdf.setFont(fontFamily, fontWeight);
+              } catch (e) {
+                // Fallback to helvetica if font is not available
+                pdf.setFont("helvetica", fontWeight);
+              }
+              
+              pdf.setFontSize(field.fontSize * 0.75); // Adjust font size for PDF to match preview
               
               // Set text color if provided, otherwise use default black
               if (field.color) {
@@ -231,7 +241,7 @@ export const generatePDF = (
               
               // Calculate the position in mm, relative to this card's position
               const xPos = x + (field.x * scale);
-              const yPos = y + (field.y * scale);
+              const yPos = y + (field.y * scale + field.fontSize * 0.75); // Adjust y position to match preview
               
               // Clean the text value - remove unwanted quotes
               const cleanedValue = value.replace(/^"|"$/g, '');

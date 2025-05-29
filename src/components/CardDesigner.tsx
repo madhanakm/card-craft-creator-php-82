@@ -1,12 +1,14 @@
 
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CardField } from "@/utils/pdfGenerator";
+import Ruler from "./Ruler";
 
 interface CardDesignerProps {
   fields: CardField[];
@@ -14,6 +16,15 @@ interface CardDesignerProps {
   backgroundImage: string;
   orientation: "portrait" | "landscape";
 }
+
+const FONT_FAMILIES = [
+  { value: "helvetica", label: "Helvetica" },
+  { value: "times", label: "Times" },
+  { value: "courier", label: "Courier" },
+  { value: "arial", label: "Arial" },
+  { value: "georgia", label: "Georgia" },
+  { value: "verdana", label: "Verdana" }
+];
 
 const CardDesigner: React.FC<CardDesignerProps> = ({ 
   fields, 
@@ -53,8 +64,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     if (!containerRect) return;
     
     // Calculate new position accounting for the offset
-    const newX = e.clientX - containerRect.left - dragOffset.x;
-    const newY = e.clientY - containerRect.top - dragOffset.y;
+    const newX = e.clientX - containerRect.left - dragOffset.x - 20; // Account for ruler width
+    const newY = e.clientY - containerRect.top - dragOffset.y - 20; // Account for ruler height
     
     // Ensure field stays within container boundaries
     const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 100));
@@ -110,6 +121,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
+  const handleFontFamilyChange = (fontFamily: string, fieldId: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.id === fieldId) {
+        return { ...field, fontFamily };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
   const togglePhotoField = (fieldId: string) => {
     const updatedFields = fields.map(field => {
       if (field.id === fieldId) {
@@ -155,47 +177,60 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
   return (
     <div className="flex flex-col">
-      <div
-        id="card-designer-container"
-        className="relative overflow-hidden border border-gray-200 rounded-lg mb-6"
-        style={{
-          width: `${cardDimensions.width}px`,
-          height: `${cardDimensions.height}px`,
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-        onMouseMove={handleDrag}
-        onMouseUp={handleDragEnd}
-        onMouseLeave={handleDragEnd}
-      >
-        {fields.map((field) => (
-          <div
-            key={field.id}
-            className={cn(
-              "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
-              activeField === field.id && "border-blue-500",
-              field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
-            )}
-            style={{
-              left: `${field.x}px`,
-              top: `${field.y}px`,
-              fontSize: `${field.fontSize}px`,
-              fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
-              color: field.color || "inherit",
-              zIndex: activeField === field.id ? 10 : 1,
-            }}
-            onMouseDown={(e) => handleDragStart(e, field.id)}
-          >
-            <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
-            <span>
-              {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
-            </span>
-          </div>
-        ))}
+      <div className="flex">
+        {/* Top ruler */}
+        <div className="w-5 h-5"></div>
+        <Ruler orientation="horizontal" length={cardDimensions.width} />
+      </div>
+      
+      <div className="flex">
+        {/* Left ruler */}
+        <Ruler orientation="vertical" length={cardDimensions.height} />
+        
+        {/* Main design area */}
+        <div
+          id="card-designer-container"
+          className="relative overflow-hidden border border-gray-200"
+          style={{
+            width: `${cardDimensions.width}px`,
+            height: `${cardDimensions.height}px`,
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+          onMouseMove={handleDrag}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={handleDragEnd}
+        >
+          {fields.map((field) => (
+            <div
+              key={field.id}
+              className={cn(
+                "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
+                activeField === field.id && "border-blue-500",
+                field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
+              )}
+              style={{
+                left: `${field.x}px`,
+                top: `${field.y}px`,
+                fontSize: `${field.fontSize}px`,
+                fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
+                fontFamily: field.fontFamily || "helvetica",
+                color: field.color || "inherit",
+                zIndex: activeField === field.id ? 10 : 1,
+              }}
+              onMouseDown={(e) => handleDragStart(e, field.id)}
+            >
+              <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
+              <span>
+                {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="bg-gray-50 p-4 rounded-lg mt-4">
         <h3 className="text-lg font-medium mb-4">Field Properties</h3>
         
         <div className="space-y-4">
@@ -280,8 +315,27 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     />
                     <span className="text-xs w-8 text-right">{field.fontSize}px</span>
                   </div>
+
+                  <div className="flex items-center gap-3 mb-3">
+                    <FileText className="h-4 w-4 text-gray-500" />
+                    <Select 
+                      value={field.fontFamily || "helvetica"} 
+                      onValueChange={(value) => handleFontFamilyChange(value, field.id)}
+                    >
+                      <SelectTrigger className="flex-1 h-8">
+                        <SelectValue placeholder="Select font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FONT_FAMILIES.map((font) => (
+                          <SelectItem key={font.value} value={font.value}>
+                            {font.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 mb-3">
                     <Palette className="h-4 w-4 text-gray-500" />
                     <Input
                       type="color"
@@ -299,7 +353,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     />
                   </div>
 
-                  <div className="flex items-center gap-3 mt-3">
+                  <div className="flex items-center gap-3">
                     <Button 
                       variant="ghost" 
                       size="sm" 
