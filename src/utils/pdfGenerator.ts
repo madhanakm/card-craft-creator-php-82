@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -25,14 +26,14 @@ const normalizePhotoFilename = (filename: string): string[] => {
   const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
   
   if (!hasExtension) {
-    // Return multiple possible extensions
+    // Return multiple possible extensions - JPG first since it's most common
     return [
-      `${trimmed}.jpg`,
       `${trimmed}.JPG`,
+      `${trimmed}.jpg`,
+      `${trimmed}.PNG`, 
       `${trimmed}.png`,
-      `${trimmed}.PNG`,
-      `${trimmed}.jpeg`,
-      `${trimmed}.JPEG`
+      `${trimmed}.JPEG`,
+      `${trimmed}.jpeg`
     ];
   }
   
