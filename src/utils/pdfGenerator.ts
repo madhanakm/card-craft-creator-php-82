@@ -78,7 +78,7 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Create a circular canvas from an image
+// Create a circular canvas from an image with improved quality and no black outline
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -91,9 +91,20 @@ const createCircularImage = (imageData: string, width: number, height: number): 
         return;
       }
       
-      // Set canvas size
-      canvas.width = width;
-      canvas.height = height;
+      // Set canvas size with higher resolution for better quality
+      const scale = 2; // 2x resolution for better quality
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      
+      // Scale the context to match the higher resolution
+      ctx.scale(scale, scale);
+      
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
+      // Clear the canvas with transparent background
+      ctx.clearRect(0, 0, width, height);
       
       // Create circular clipping path
       const centerX = width / 2;
@@ -102,17 +113,19 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.closePath();
       ctx.clip();
       
-      // Draw the image
+      // Draw the image with better quality
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Convert to base64
-      const circularImageData = canvas.toDataURL('image/jpeg', 0.9);
+      // Convert to base64 with high quality
+      const circularImageData = canvas.toDataURL('image/png', 1.0); // Use PNG for transparency, max quality
       resolve(circularImageData);
     };
     
     img.onerror = () => reject(new Error('Failed to load image'));
+    img.crossOrigin = 'anonymous'; // Handle CORS issues
     img.src = imageData;
   });
 };
@@ -159,10 +172,10 @@ const generatePDF = async (
           const imageHeight = field.photoHeight || 60;
           
           if (field.photoShape === "circle") {
-            // Create a circular version of the image
+            // Create a circular version of the image with improved quality
             try {
               const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
-              doc.addImage(circularImageData, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error creating circular image:', error);
               // Fallback to square image
