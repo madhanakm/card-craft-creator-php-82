@@ -163,9 +163,9 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     newX = snapToGridIfEnabled(newX);
     newY = snapToGridIfEnabled(newY);
     
-    // Ensure field stays within container boundaries
-    const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 100));
-    const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 30));
+    // Reduced padding constraints - allow fields to be positioned closer to edges
+    const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20)); // Reduced from 100 to 20
+    const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20)); // Reduced from 30 to 20
     
     // Update the field position
     const updatedFields = fields.map(field => {
@@ -284,22 +284,22 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         
         switch (alignment) {
           case 'left':
-            newX = 10;
+            newX = 5; // Reduced from 10 to 5
             break;
           case 'center':
             newX = cardDimensions.width / 2 - 50; // Approximate center
             break;
           case 'right':
-            newX = cardDimensions.width - 100;
+            newX = cardDimensions.width - 60; // Reduced from 100 to 60
             break;
           case 'top':
-            newY = 10;
+            newY = 5; // Reduced from 10 to 5
             break;
           case 'middle':
             newY = cardDimensions.height / 2;
             break;
           case 'bottom':
-            newY = cardDimensions.height - 50;
+            newY = cardDimensions.height - 30; // Reduced from 50 to 30
             break;
         }
         
