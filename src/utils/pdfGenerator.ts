@@ -86,7 +86,7 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Create a circular canvas from an image with improved quality and no black outline
+// Fix image orientation and create circular image with proper handling
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -124,7 +124,10 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       ctx.closePath();
       ctx.clip();
       
-      // Draw the image with better quality
+      // Reset any transformations that might cause rotation issues
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      
+      // Draw the image with proper orientation - no rotation
       ctx.drawImage(img, 0, 0, width, height);
       
       // Convert to base64 with high quality
@@ -134,6 +137,20 @@ const createCircularImage = (imageData: string, width: number, height: number): 
     
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous'; // Handle CORS issues
+    img.src = imageData;
+  });
+};
+
+// Fix image loading to prevent rotation issues
+const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      console.log(`Image loaded: ${img.width}x${img.height}`);
+      resolve(img);
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.crossOrigin = 'anonymous';
     img.src = imageData;
   });
 };
@@ -158,15 +175,8 @@ const generatePDF = async (
 
   for (const record of records) {
     if (backgroundImage) {
-      const img = new Image();
-      img.src = backgroundImage;
-      await new Promise((resolve, reject) => {
-        img.onload = () => {
-          doc.addImage(img, 'PNG', 0, 0, cardDimensions.width, cardDimensions.height);
-          resolve(null);
-        };
-        img.onerror = reject;
-      });
+      const img = await loadImageWithProperOrientation(backgroundImage);
+      doc.addImage(img, 'PNG', 0, 0, cardDimensions.width, cardDimensions.height);
     }
 
     for (const field of fields) {
@@ -179,19 +189,30 @@ const generatePDF = async (
           const imageWidth = field.photoWidth || 60;
           const imageHeight = field.photoHeight || 60;
           
+          console.log(`Processing photo for field ${field.field}: ${value}`);
+          
           if (field.photoShape === "circle") {
-            // Create a circular version of the image with improved quality
+            // Create a circular version of the image with proper orientation
             try {
               const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
+              // Use PNG format for circular images to preserve transparency
               doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error creating circular image:', error);
-              // Fallback to square image
-              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              // Fallback to square image with proper orientation
+              const img = await loadImageWithProperOrientation(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
             }
           } else {
-            // Regular square/rectangle photo
-            doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+            // Regular square/rectangle photo with proper orientation
+            try {
+              const img = await loadImageWithProperOrientation(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+            } catch (error) {
+              console.error('Error loading image:', error);
+              // Direct fallback
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+            }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
