@@ -201,7 +201,7 @@ const generatePDF = async (
           doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
-        // Handle text fields with exact same positioning as preview
+        // Handle text fields - match exact preview positioning
         doc.setFont(field.fontFamily, field.fontWeight);
         doc.setFontSize(field.fontSize);
         doc.setTextColor(field.color);
@@ -209,8 +209,9 @@ const generatePDF = async (
         // Clean the value (remove quotes)
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Position text exactly as in preview (add fontSize to y for baseline alignment)
-        doc.text(cleanedValue, field.x, field.y + field.fontSize);
+        // Position text exactly as in preview - use the same y position without adding fontSize
+        // This matches how CSS positioning works in the preview
+        doc.text(cleanedValue, field.x, field.y);
       }
     }
 
