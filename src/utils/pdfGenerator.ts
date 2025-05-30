@@ -124,10 +124,10 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       ctx.closePath();
       ctx.clip();
       
-      // Reset any transformations that might cause rotation issues
+      // Reset transformations and disable any automatic orientation
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       
-      // Draw the image with proper orientation - no rotation
+      // Draw the image without any rotation - maintain original orientation
       ctx.drawImage(img, 0, 0, width, height);
       
       // Convert to base64 with high quality
@@ -137,6 +137,8 @@ const createCircularImage = (imageData: string, width: number, height: number): 
     
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous'; // Handle CORS issues
+    // Disable any automatic image orientation
+    img.style.imageOrientation = 'none';
     img.src = imageData;
   });
 };
@@ -151,8 +153,24 @@ const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageEle
     };
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
+    // Disable automatic image orientation to prevent rotation
+    img.style.imageOrientation = 'none';
     img.src = imageData;
   });
+};
+
+// Add padding constraints for text positioning
+const applyPaddingConstraints = (x: number, y: number, fontSize: number, cardDimensions: { width: number; height: number }) => {
+  const padding = 10; // 10px padding from edges
+  const minX = padding;
+  const maxX = cardDimensions.width - padding;
+  const minY = fontSize + padding; // Account for font height
+  const maxY = cardDimensions.height - padding;
+  
+  return {
+    x: Math.max(minX, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY))
+  };
 };
 
 const generatePDF = async (
@@ -222,7 +240,7 @@ const generatePDF = async (
           doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
-        // Handle text fields - match exact preview positioning
+        // Handle text fields with padding constraints
         doc.setFont(field.fontFamily, field.fontWeight);
         doc.setFontSize(field.fontSize);
         doc.setTextColor(field.color);
@@ -230,9 +248,17 @@ const generatePDF = async (
         // Clean the value (remove quotes)
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Position text exactly as in preview - use the same y position without adding fontSize
-        // This matches how CSS positioning works in the preview
-        doc.text(cleanedValue, field.x, field.y);
+        // Apply padding constraints to prevent text overflow
+        const constrainedPos = applyPaddingConstraints(field.x, field.y, field.fontSize, cardDimensions);
+        
+        // Calculate maximum width for text wrapping
+        const maxWidth = cardDimensions.width - constrainedPos.x - 10; // 10px right margin
+        
+        // Use splitTextToSize to handle text wrapping within bounds
+        const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
+        
+        // Position text with constraints applied
+        doc.text(textLines, constrainedPos.x, constrainedPos.y);
       }
     }
 
