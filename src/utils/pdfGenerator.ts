@@ -100,7 +100,7 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       }
       
       // Set canvas size with higher resolution for better quality
-      const scale = 2; // 2x resolution for better quality
+      const scale = 3; // Increased scale for better PDF quality
       canvas.width = width * scale;
       canvas.height = height * scale;
       
@@ -131,13 +131,12 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       ctx.drawImage(img, 0, 0, width, height);
       
       // Convert to base64 with high quality
-      const circularImageData = canvas.toDataURL('image/png', 1.0); // Use PNG for transparency, max quality
+      const circularImageData = canvas.toDataURL('image/png', 1.0);
       resolve(circularImageData);
     };
     
     img.onerror = () => reject(new Error('Failed to load image'));
-    img.crossOrigin = 'anonymous'; // Handle CORS issues
-    // Disable any automatic image orientation
+    img.crossOrigin = 'anonymous';
     img.style.imageOrientation = 'none';
     img.src = imageData;
   });
@@ -153,7 +152,6 @@ const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageEle
     };
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
-    // Disable automatic image orientation to prevent rotation
     img.style.imageOrientation = 'none';
     img.src = imageData;
   });
@@ -161,10 +159,10 @@ const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageEle
 
 // Add padding constraints for text positioning
 const applyPaddingConstraints = (x: number, y: number, fontSize: number, cardDimensions: { width: number; height: number }) => {
-  const padding = 10; // 10px padding from edges
+  const padding = 10;
   const minX = padding;
   const maxX = cardDimensions.width - padding;
-  const minY = fontSize + padding; // Account for font height
+  const minY = fontSize + padding;
   const maxY = cardDimensions.height - padding;
   
   return {
@@ -180,84 +178,98 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Use exact dimensions matching the preview
+  // Use exact dimensions matching the preview with higher resolution
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
+  // Create PDF with higher resolution for better quality
+  const scaleFactor = 2; // 2x resolution for crisp output
+  const pdfWidth = cardDimensions.width * scaleFactor;
+  const pdfHeight = cardDimensions.height * scaleFactor;
+
   const doc = new jsPDF({
     orientation,
     unit: 'px',
-    format: [cardDimensions.width, cardDimensions.height]
+    format: [pdfWidth, pdfHeight]
   });
 
   for (const record of records) {
     if (backgroundImage) {
       const img = await loadImageWithProperOrientation(backgroundImage);
-      doc.addImage(img, 'PNG', 0, 0, cardDimensions.width, cardDimensions.height);
+      doc.addImage(img, 'PNG', 0, 0, pdfWidth, pdfHeight);
     }
 
     for (const field of fields) {
       const value = record[field.field] || '';
       
-      // Check if the field is a photo field
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          const imageWidth = field.photoWidth || 60;
-          const imageHeight = field.photoHeight || 60;
+          // Scale photo dimensions for higher resolution
+          const imageWidth = (field.photoWidth || 60) * scaleFactor;
+          const imageHeight = (field.photoHeight || 60) * scaleFactor;
+          const scaledX = field.x * scaleFactor;
+          const scaledY = field.y * scaleFactor;
           
           console.log(`Processing photo for field ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
-            // Create a circular version of the image with proper orientation
             try {
-              const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
-              // Use PNG format for circular images to preserve transparency
-              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight);
+              const circularImageData = await createCircularImage(photoBase64, imageWidth / scaleFactor, imageHeight / scaleFactor);
+              doc.addImage(circularImageData, 'PNG', scaledX, scaledY, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error creating circular image:', error);
-              // Fallback to square image with proper orientation
               const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(img, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
             }
           } else {
-            // Regular square/rectangle photo with proper orientation
             try {
               const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(img, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error loading image:', error);
-              // Direct fallback
-              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(photoBase64, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
             }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
+          // Scale font size and position for missing photo text
           doc.setFont(field.fontFamily, field.fontWeight);
-          doc.setFontSize(field.fontSize);
+          doc.setFontSize(field.fontSize * scaleFactor * 0.75); // Adjusted scaling for text
           doc.setTextColor(field.color);
-          doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
+          doc.text(`Photo Missing: ${field.field}`, field.x * scaleFactor, (field.y + field.fontSize) * scaleFactor);
         }
       } else {
-        // Handle text fields with padding constraints
+        // Handle text fields with proper scaling to match preview
         doc.setFont(field.fontFamily, field.fontWeight);
-        doc.setFontSize(field.fontSize);
+        
+        // Scale font size to match preview appearance - use 1.2x multiplier for better visual match
+        const scaledFontSize = field.fontSize * scaleFactor * 1.2;
+        doc.setFontSize(scaledFontSize);
         doc.setTextColor(field.color);
         
-        // Clean the value (remove quotes)
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Apply padding constraints to prevent text overflow
-        const constrainedPos = applyPaddingConstraints(field.x, field.y, field.fontSize, cardDimensions);
+        // Apply padding constraints with scaled dimensions
+        const scaledCardDimensions = {
+          width: cardDimensions.width * scaleFactor,
+          height: cardDimensions.height * scaleFactor
+        };
+        const constrainedPos = applyPaddingConstraints(
+          field.x * scaleFactor, 
+          field.y * scaleFactor, 
+          scaledFontSize, 
+          scaledCardDimensions
+        );
         
-        // Calculate maximum width for text wrapping
-        const maxWidth = cardDimensions.width - constrainedPos.x - 10; // 10px right margin
+        // Calculate maximum width for text wrapping with scaling
+        const maxWidth = scaledCardDimensions.width - constrainedPos.x - (10 * scaleFactor);
         
-        // Use splitTextToSize to handle text wrapping within bounds
+        // Use splitTextToSize with scaled dimensions
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with constraints applied
+        // Position text with proper scaling
         doc.text(textLines, constrainedPos.x, constrainedPos.y);
       }
     }
