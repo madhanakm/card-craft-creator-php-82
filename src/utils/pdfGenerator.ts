@@ -268,15 +268,15 @@ const generatePDF = async (
           console.warn(`Photo not found for ${field.field}: ${value}`);
           // Use exact font sizing for missing photo text
           doc.setFont(field.fontFamily, field.fontWeight);
-          doc.setFontSize(field.fontSize * 0.8); // Slightly smaller for missing photo indicator
+          doc.setFontSize(field.fontSize);
           doc.setTextColor(field.color);
           doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
-        // Handle text fields with exact 1:1 scaling for perfect preview match
+        // Handle text fields with EXACT same sizing as preview
         doc.setFont(field.fontFamily, field.fontWeight);
         
-        // Use exact font size from preview for perfect accuracy
+        // Use EXACT font size from preview - NO SCALING OR MULTIPLIERS
         doc.setFontSize(field.fontSize);
         doc.setTextColor(field.color);
         
@@ -296,7 +296,7 @@ const generatePDF = async (
         // Use splitTextToSize with exact dimensions
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with exact coordinates
+        // Position text with exact coordinates - NO ADJUSTMENTS
         doc.text(textLines, constrainedPos.x, constrainedPos.y);
       }
     }
