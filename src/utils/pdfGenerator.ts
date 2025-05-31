@@ -86,6 +86,40 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+// Convert background image to JPEG format to avoid transparency issues in CorelDraw
+const convertBackgroundToJPEG = (imageData: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Fill with white background to avoid transparency issues
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw the image on top
+      ctx.drawImage(img, 0, 0);
+      
+      // Convert to JPEG with high quality (no transparency)
+      const jpegData = canvas.toDataURL('image/jpeg', 0.95);
+      resolve(jpegData);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load background image'));
+    img.crossOrigin = 'anonymous';
+    img.src = imageData;
+  });
+};
+
 // Fix image orientation and create circular image with proper handling
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -130,7 +164,7 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       // Draw the image without any rotation - maintain original orientation
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Convert to base64 with high quality
+      // Convert to PNG with high quality
       const circularImageData = canvas.toDataURL('image/png', 1.0);
       resolve(circularImageData);
     };
@@ -157,11 +191,11 @@ const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageEle
   });
 };
 
-// Add padding constraints for text positioning
+// Enhanced padding constraints for better text positioning
 const applyPaddingConstraints = (x: number, y: number, fontSize: number, cardDimensions: { width: number; height: number }) => {
-  const padding = 10;
+  const padding = 15; // Increased padding for better margins
   const minX = padding;
-  const maxX = cardDimensions.width - padding;
+  const maxX = cardDimensions.width - padding - 20; // Extra margin for text
   const minY = fontSize + padding;
   const maxY = cardDimensions.height - padding;
   
@@ -178,26 +212,26 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Use exact dimensions matching the preview with higher resolution
+  // Use exact dimensions matching the preview - no scaling to maintain 1:1 accuracy
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with higher resolution for better quality
-  const scaleFactor = 2; // 2x resolution for crisp output
-  const pdfWidth = cardDimensions.width * scaleFactor;
-  const pdfHeight = cardDimensions.height * scaleFactor;
-
+  // Create PDF with exact preview dimensions for perfect accuracy
   const doc = new jsPDF({
     orientation,
     unit: 'px',
-    format: [pdfWidth, pdfHeight]
+    format: [cardDimensions.width, cardDimensions.height]
   });
 
+  // Convert background to JPEG for CorelDraw compatibility
+  const backgroundJPEG = backgroundImage ? await convertBackgroundToJPEG(backgroundImage) : null;
+
   for (const record of records) {
-    if (backgroundImage) {
-      const img = await loadImageWithProperOrientation(backgroundImage);
-      doc.addImage(img, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    if (backgroundJPEG) {
+      const img = await loadImageWithProperOrientation(backgroundJPEG);
+      // Use JPEG format specifically for better CorelDraw compatibility
+      doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height);
     }
 
     for (const field of fields) {
@@ -206,70 +240,63 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          // Scale photo dimensions for higher resolution
-          const imageWidth = (field.photoWidth || 60) * scaleFactor;
-          const imageHeight = (field.photoHeight || 60) * scaleFactor;
-          const scaledX = field.x * scaleFactor;
-          const scaledY = field.y * scaleFactor;
+          // Use exact dimensions without scaling for perfect accuracy
+          const imageWidth = field.photoWidth || 60;
+          const imageHeight = field.photoHeight || 60;
           
           console.log(`Processing photo for field ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
             try {
-              const circularImageData = await createCircularImage(photoBase64, imageWidth / scaleFactor, imageHeight / scaleFactor);
-              doc.addImage(circularImageData, 'PNG', scaledX, scaledY, imageWidth, imageHeight);
+              const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
+              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error creating circular image:', error);
               const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
             }
           } else {
             try {
               const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
             } catch (error) {
               console.error('Error loading image:', error);
-              doc.addImage(photoBase64, 'JPEG', scaledX, scaledY, imageWidth, imageHeight);
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
             }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          // Scale font size and position for missing photo text
+          // Use exact font sizing for missing photo text
           doc.setFont(field.fontFamily, field.fontWeight);
-          doc.setFontSize(field.fontSize * scaleFactor * 0.75); // Adjusted scaling for text
+          doc.setFontSize(field.fontSize * 0.8); // Slightly smaller for missing photo indicator
           doc.setTextColor(field.color);
-          doc.text(`Photo Missing: ${field.field}`, field.x * scaleFactor, (field.y + field.fontSize) * scaleFactor);
+          doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
-        // Handle text fields with proper scaling to match preview
+        // Handle text fields with exact 1:1 scaling for perfect preview match
         doc.setFont(field.fontFamily, field.fontWeight);
         
-        // Scale font size to match preview appearance - use 1.2x multiplier for better visual match
-        const scaledFontSize = field.fontSize * scaleFactor * 1.2;
-        doc.setFontSize(scaledFontSize);
+        // Use exact font size from preview for perfect accuracy
+        doc.setFontSize(field.fontSize);
         doc.setTextColor(field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Apply padding constraints with scaled dimensions
-        const scaledCardDimensions = {
-          width: cardDimensions.width * scaleFactor,
-          height: cardDimensions.height * scaleFactor
-        };
+        // Apply enhanced padding constraints
         const constrainedPos = applyPaddingConstraints(
-          field.x * scaleFactor, 
-          field.y * scaleFactor, 
-          scaledFontSize, 
-          scaledCardDimensions
+          field.x, 
+          field.y, 
+          field.fontSize, 
+          cardDimensions
         );
         
-        // Calculate maximum width for text wrapping with scaling
-        const maxWidth = scaledCardDimensions.width - constrainedPos.x - (10 * scaleFactor);
+        // Calculate maximum width for text wrapping with better margins
+        const maxWidth = cardDimensions.width - constrainedPos.x - 20;
         
-        // Use splitTextToSize with scaled dimensions
+        // Use splitTextToSize with exact dimensions
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with proper scaling
+        // Position text with exact coordinates
         doc.text(textLines, constrainedPos.x, constrainedPos.y);
       }
     }
