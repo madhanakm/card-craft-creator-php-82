@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -212,10 +213,11 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// Remove padding constraints for exact preview matching
-const getExactPosition = (x: number, y: number) => {
-  // Return exact coordinates without any padding adjustments
-  return { x, y };
+// Calculate exact text baseline offset to match CSS rendering
+const calculateTextBaselineOffset = (fontSize: number): number => {
+  // jsPDF positions text from baseline, CSS from top
+  // This offset compensates for the difference to achieve pixel-perfect alignment
+  return fontSize * 0.8; // Empirically determined offset for exact alignment
 };
 
 const generatePDF = async (
@@ -289,7 +291,10 @@ const generatePDF = async (
           doc.setFont(field.fontFamily, field.fontWeight);
           doc.setFontSize(field.fontSize);
           setCMYKColor(doc, field.color);
-          doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
+          
+          // Apply baseline correction for missing photo text
+          const correctedY = field.y + calculateTextBaselineOffset(field.fontSize);
+          doc.text(`Photo Missing: ${field.field}`, field.x, correctedY);
         }
       } else {
         // Handle text fields with EXACT positioning and CMYK colors
@@ -303,17 +308,19 @@ const generatePDF = async (
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Use exact positioning without padding constraints
-        const exactPos = getExactPosition(field.x, field.y);
+        // Calculate the exact Y position with baseline correction for perfect alignment
+        const correctedY = field.y + calculateTextBaselineOffset(field.fontSize);
         
         // Calculate text width with exact dimensions
-        const maxWidth = cardDimensions.width - exactPos.x - 5; // Minimal margin only
+        const maxWidth = cardDimensions.width - field.x - 5; // Minimal margin only
         
         // Use splitTextToSize with exact measurements
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with pixel-perfect coordinates
-        doc.text(textLines, exactPos.x, exactPos.y);
+        // Position text with pixel-perfect coordinates and baseline correction
+        doc.text(textLines, field.x, correctedY);
+        
+        console.log(`Text positioned: ${field.field} at (${field.x}, ${correctedY}) with font size ${field.fontSize}`);
       }
     }
 
