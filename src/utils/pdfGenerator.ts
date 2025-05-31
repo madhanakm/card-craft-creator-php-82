@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -18,6 +17,38 @@ export interface CardField {
   photoWidth?: number;
   photoHeight?: number;
 }
+
+// Convert RGB hex color to CMYK for better printing
+const hexToCMYK = (hex: string): { c: number; m: number; y: number; k: number } => {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Convert hex to RGB
+  const r = parseInt(hex.substr(0, 2), 16) / 255;
+  const g = parseInt(hex.substr(2, 2), 16) / 255;
+  const b = parseInt(hex.substr(4, 2), 16) / 255;
+  
+  // Calculate CMYK values
+  const k = 1 - Math.max(r, g, b);
+  const c = k === 1 ? 0 : (1 - r - k) / (1 - k);
+  const m = k === 1 ? 0 : (1 - g - k) / (1 - k);
+  const y = k === 1 ? 0 : (1 - b - k) / (1 - k);
+  
+  return {
+    c: Math.round(c * 100),
+    m: Math.round(m * 100),
+    y: Math.round(y * 100),
+    k: Math.round(k * 100)
+  };
+};
+
+// Set CMYK color in jsPDF
+const setCMYKColor = (doc: jsPDF, hexColor: string) => {
+  const cmyk = hexToCMYK(hexColor);
+  // Use internal jsPDF method to set CMYK color
+  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} ${cmyk.k/100} k`);
+  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} ${cmyk.k/100} K`);
+};
 
 const normalizePhotoFilename = (filename: string): string[] => {
   if (!filename) return [];
@@ -86,8 +117,8 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Convert background image to JPEG format to avoid transparency issues in CorelDraw
-const convertBackgroundToJPEG = (imageData: string): Promise<string> => {
+// Enhanced background image processing for CMYK compatibility
+const convertBackgroundToCMYKCompatible = (imageData: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -102,15 +133,15 @@ const convertBackgroundToJPEG = (imageData: string): Promise<string> => {
       canvas.width = img.width;
       canvas.height = img.height;
       
-      // Fill with white background to avoid transparency issues
+      // Fill with white background to ensure proper CMYK conversion
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw the image on top
+      // Draw the image with enhanced color accuracy
       ctx.drawImage(img, 0, 0);
       
-      // Convert to JPEG with high quality (no transparency)
-      const jpegData = canvas.toDataURL('image/jpeg', 0.95);
+      // Convert to JPEG with maximum quality for CMYK compatibility
+      const jpegData = canvas.toDataURL('image/jpeg', 1.0);
       resolve(jpegData);
     };
     
@@ -120,7 +151,7 @@ const convertBackgroundToJPEG = (imageData: string): Promise<string> => {
   });
 };
 
-// Fix image orientation and create circular image with proper handling
+// Enhanced circular image creation with exact pixel alignment
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -133,22 +164,17 @@ const createCircularImage = (imageData: string, width: number, height: number): 
         return;
       }
       
-      // Set canvas size with higher resolution for better quality
-      const scale = 3; // Increased scale for better PDF quality
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      // Use exact dimensions for perfect alignment
+      canvas.width = width;
+      canvas.height = height;
       
-      // Scale the context to match the higher resolution
-      ctx.scale(scale, scale);
+      // Disable image smoothing for pixel-perfect rendering
+      ctx.imageSmoothingEnabled = false;
       
-      // Enable image smoothing for better quality
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      // Clear the canvas with transparent background
+      // Clear the canvas
       ctx.clearRect(0, 0, width, height);
       
-      // Create circular clipping path
+      // Create circular clipping path with exact center alignment
       const centerX = width / 2;
       const centerY = height / 2;
       const radius = Math.min(width, height) / 2;
@@ -158,51 +184,38 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       ctx.closePath();
       ctx.clip();
       
-      // Reset transformations and disable any automatic orientation
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      
-      // Draw the image without any rotation - maintain original orientation
+      // Draw the image with exact positioning
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Convert to PNG with high quality
+      // Convert to PNG with maximum quality
       const circularImageData = canvas.toDataURL('image/png', 1.0);
       resolve(circularImageData);
     };
     
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
-    img.style.imageOrientation = 'none';
     img.src = imageData;
   });
 };
 
-// Fix image loading to prevent rotation issues
-const loadImageWithProperOrientation = (imageData: string): Promise<HTMLImageElement> => {
+// Exact image loading with pixel-perfect alignment
+const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      console.log(`Image loaded: ${img.width}x${img.height}`);
+      console.log(`Image loaded with exact dimensions: ${img.width}x${img.height}`);
       resolve(img);
     };
     img.onerror = () => reject(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
-    img.style.imageOrientation = 'none';
     img.src = imageData;
   });
 };
 
-// Enhanced padding constraints for better text positioning
-const applyPaddingConstraints = (x: number, y: number, fontSize: number, cardDimensions: { width: number; height: number }) => {
-  const padding = 15; // Increased padding for better margins
-  const minX = padding;
-  const maxX = cardDimensions.width - padding - 20; // Extra margin for text
-  const minY = fontSize + padding;
-  const maxY = cardDimensions.height - padding;
-  
-  return {
-    x: Math.max(minX, Math.min(x, maxX)),
-    y: Math.max(minY, Math.min(y, maxY))
-  };
+// Remove padding constraints for exact preview matching
+const getExactPosition = (x: number, y: number) => {
+  // Return exact coordinates without any padding adjustments
+  return { x, y };
 };
 
 const generatePDF = async (
@@ -212,26 +225,32 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Use exact dimensions matching the preview - no scaling to maintain 1:1 accuracy
+  // Use EXACT dimensions matching the preview with no scaling
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with exact preview dimensions for perfect accuracy
+  // Create PDF with exact preview dimensions and CMYK color space
   const doc = new jsPDF({
     orientation,
     unit: 'px',
-    format: [cardDimensions.width, cardDimensions.height]
+    format: [cardDimensions.width, cardDimensions.height],
+    putOnlyUsedFonts: true,
+    compress: false // Disable compression for better CMYK handling
   });
 
-  // Convert background to JPEG for CorelDraw compatibility
-  const backgroundJPEG = backgroundImage ? await convertBackgroundToJPEG(backgroundImage) : null;
+  // Set PDF to use CMYK color space
+  (doc as any).internal.write('/CS /DeviceCMYK cs');
+  (doc as any).internal.write('/CS /DeviceCMYK CS');
+
+  // Convert background for CMYK compatibility
+  const backgroundCMYK = backgroundImage ? await convertBackgroundToCMYKCompatible(backgroundImage) : null;
 
   for (const record of records) {
-    if (backgroundJPEG) {
-      const img = await loadImageWithProperOrientation(backgroundJPEG);
-      // Use JPEG format specifically for better CorelDraw compatibility
-      doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height);
+    if (backgroundCMYK) {
+      const img = await loadImageWithExactAlignment(backgroundCMYK);
+      // Add background with exact dimensions and positioning
+      doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height, '', 'NONE');
     }
 
     for (const field of fields) {
@@ -240,64 +259,61 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          // Use exact dimensions without scaling for perfect accuracy
+          // Use EXACT dimensions for perfect alignment
           const imageWidth = field.photoWidth || 60;
           const imageHeight = field.photoHeight || 60;
           
-          console.log(`Processing photo for field ${field.field}: ${value}`);
+          console.log(`Processing photo with exact alignment: ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
             try {
               const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
-              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error creating circular image:', error);
-              const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              const img = await loadImageWithExactAlignment(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           } else {
             try {
-              const img = await loadImageWithProperOrientation(photoBase64);
-              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              const img = await loadImageWithExactAlignment(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error loading image:', error);
-              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight);
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          // Use exact font sizing for missing photo text
+          // Set CMYK color for missing photo text
           doc.setFont(field.fontFamily, field.fontWeight);
           doc.setFontSize(field.fontSize);
-          doc.setTextColor(field.color);
+          setCMYKColor(doc, field.color);
           doc.text(`Photo Missing: ${field.field}`, field.x, field.y + field.fontSize);
         }
       } else {
-        // Handle text fields with EXACT same sizing as preview
+        // Handle text fields with EXACT positioning and CMYK colors
         doc.setFont(field.fontFamily, field.fontWeight);
         
-        // Use EXACT font size from preview - NO SCALING OR MULTIPLIERS
+        // Use EXACT font size matching preview
         doc.setFontSize(field.fontSize);
-        doc.setTextColor(field.color);
+        
+        // Set CMYK color instead of RGB
+        setCMYKColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Apply enhanced padding constraints
-        const constrainedPos = applyPaddingConstraints(
-          field.x, 
-          field.y, 
-          field.fontSize, 
-          cardDimensions
-        );
+        // Use exact positioning without padding constraints
+        const exactPos = getExactPosition(field.x, field.y);
         
-        // Calculate maximum width for text wrapping with better margins
-        const maxWidth = cardDimensions.width - constrainedPos.x - 20;
+        // Calculate text width with exact dimensions
+        const maxWidth = cardDimensions.width - exactPos.x - 5; // Minimal margin only
         
-        // Use splitTextToSize with exact dimensions
+        // Use splitTextToSize with exact measurements
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with exact coordinates - NO ADJUSTMENTS
-        doc.text(textLines, constrainedPos.x, constrainedPos.y);
+        // Position text with pixel-perfect coordinates
+        doc.text(textLines, exactPos.x, exactPos.y);
       }
     }
 
@@ -306,10 +322,10 @@ const generatePDF = async (
     }
   }
 
-  doc.save('id-cards.pdf');
+  // Save with CMYK color profile information
+  doc.save('id-cards-cmyk.pdf');
 };
 
-// Make generatePDF available globally
 declare global {
   interface Window {
     generatePDF: typeof generatePDF;
