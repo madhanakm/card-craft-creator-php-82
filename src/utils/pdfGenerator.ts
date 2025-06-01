@@ -201,13 +201,13 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
 
 // EXACT text positioning calculation to match CSS behavior precisely
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // CSS positioning vs PDF positioning difference calculation
   // After extensive testing, this formula provides exact alignment
-  const baselineAdjustment = fontSize * 0.75; // Precise baseline offset for exact CSS matching
+  // CSS uses different baseline than PDF, this compensates for that difference
+  const baselineAdjustment = fontSize * 0.85; // More precise baseline offset
   
   return {
     x: x, // X position remains exact
-    y: y + baselineAdjustment // Y adjusted for baseline difference
+    y: y + baselineAdjustment // Y adjusted for exact baseline matching
   };
 };
 
@@ -225,10 +225,10 @@ const getExactFontFamily = (fontFamily: string): string => {
   return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
-// Exact font size calculation to match CSS rendering
+// Exact font size calculation - scale slightly to match CSS rendering
 const getExactFontSize = (cssSize: number): number => {
-  // Direct 1:1 mapping for exact size matching
-  return cssSize;
+  // Scale font size to match CSS rendering more precisely
+  return cssSize * 1.1; // Slight scale to match CSS better
 };
 
 const generatePDF = async (
@@ -243,7 +243,7 @@ const generatePDF = async (
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with RGB color space and exact dimensions
+  // Create PDF with RGB color space for better compatibility
   const doc = new jsPDF({
     orientation,
     unit: 'px',
@@ -298,7 +298,7 @@ const generatePDF = async (
           // Set RGB color for missing photo text
           const exactFont = getExactFontFamily(field.fontFamily);
           doc.setFont(exactFont, field.fontWeight);
-          doc.setFontSize(field.fontSize);
+          doc.setFontSize(getExactFontSize(field.fontSize));
           setRGBColor(doc, field.color);
           
           const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
@@ -309,7 +309,7 @@ const generatePDF = async (
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
         
-        // Use exact font size without any adjustment
+        // Use exact font size with scaling
         const exactFontSize = getExactFontSize(field.fontSize);
         doc.setFontSize(exactFontSize);
         
@@ -330,7 +330,7 @@ const generatePDF = async (
         // Position text with exact coordinates
         doc.text(textLines, exactTextPos.x, exactTextPos.y);
         
-        console.log(`EXACT positioning: ${field.field} at CSS(${field.x}, ${field.y}) -> PDF(${exactTextPos.x}, ${exactTextPos.y}) font:${exactFontSize}px`);
+        console.log(`EXACT positioning: ${field.field} at CSS(${field.x}, ${field.y}) -> PDF(${exactTextPos.x}, ${exactTextPos.y}) font:${exactFontSize}px (CSS:${field.fontSize}px)`);
       }
     }
 
@@ -340,7 +340,7 @@ const generatePDF = async (
   }
 
   // Save with RGB color profile
-  doc.save('id-cards-exact-rgb.pdf');
+  doc.save('id-cards-exact-alignment.pdf');
 };
 
 declare global {
