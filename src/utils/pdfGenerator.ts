@@ -1,4 +1,5 @@
 
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -213,11 +214,29 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// Calculate exact text baseline offset to match CSS rendering
-const calculateTextBaselineOffset = (fontSize: number): number => {
-  // jsPDF positions text from baseline, CSS from top
-  // This offset compensates for the difference to achieve pixel-perfect alignment
-  return fontSize * 0.8; // Empirically determined offset for exact alignment
+// Improved text positioning to exactly match CSS rendering
+const getTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
+  // CSS positions text from the top of the line height, jsPDF from baseline
+  // This calculation ensures perfect alignment between preview and PDF
+  const baselineOffset = fontSize * 0.75; // More precise baseline calculation
+  return {
+    x: x, // Keep X position exact
+    y: y + baselineOffset // Adjust Y for baseline positioning
+  };
+};
+
+// Font mapping to ensure consistent rendering
+const mapFontFamily = (fontFamily: string): string => {
+  const fontMap: Record<string, string> = {
+    'helvetica': 'helvetica',
+    'arial': 'helvetica', // Arial maps to helvetica in jsPDF
+    'times': 'times',
+    'georgia': 'times', // Georgia maps to times
+    'courier': 'courier',
+    'verdana': 'helvetica', // Verdana maps to helvetica
+  };
+  
+  return fontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
 const generatePDF = async (
@@ -287,18 +306,19 @@ const generatePDF = async (
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          // Set CMYK color for missing photo text
-          doc.setFont(field.fontFamily, field.fontWeight);
+          // Set CMYK color for missing photo text with proper positioning
+          const mappedFont = mapFontFamily(field.fontFamily);
+          doc.setFont(mappedFont, field.fontWeight);
           doc.setFontSize(field.fontSize);
           setCMYKColor(doc, field.color);
           
-          // Apply baseline correction for missing photo text
-          const correctedY = field.y + calculateTextBaselineOffset(field.fontSize);
-          doc.text(`Photo Missing: ${field.field}`, field.x, correctedY);
+          const textPos = getTextPosition(field.x, field.y, field.fontSize);
+          doc.text(`Photo Missing: ${field.field}`, textPos.x, textPos.y);
         }
       } else {
-        // Handle text fields with EXACT positioning and CMYK colors
-        doc.setFont(field.fontFamily, field.fontWeight);
+        // Handle text fields with PERFECT positioning and font rendering
+        const mappedFont = mapFontFamily(field.fontFamily);
+        doc.setFont(mappedFont, field.fontWeight);
         
         // Use EXACT font size matching preview
         doc.setFontSize(field.fontSize);
@@ -308,19 +328,19 @@ const generatePDF = async (
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Calculate the exact Y position with baseline correction for perfect alignment
-        const correctedY = field.y + calculateTextBaselineOffset(field.fontSize);
+        // Calculate perfect text position to match CSS rendering exactly
+        const textPos = getTextPosition(field.x, field.y, field.fontSize);
         
         // Calculate text width with exact dimensions
-        const maxWidth = cardDimensions.width - field.x - 5; // Minimal margin only
+        const maxWidth = cardDimensions.width - field.x - 5;
         
         // Use splitTextToSize with exact measurements
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with pixel-perfect coordinates and baseline correction
-        doc.text(textLines, field.x, correctedY);
+        // Position text with pixel-perfect coordinates
+        doc.text(textLines, textPos.x, textPos.y);
         
-        console.log(`Text positioned: ${field.field} at (${field.x}, ${correctedY}) with font size ${field.fontSize}`);
+        console.log(`Text positioned: ${field.field} at (${textPos.x}, ${textPos.y}) with font ${mappedFont} size ${field.fontSize}`);
       }
     }
 
@@ -342,3 +362,4 @@ declare global {
 window.generatePDF = generatePDF;
 
 export { generatePDF };
+
