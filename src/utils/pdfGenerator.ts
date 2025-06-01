@@ -1,5 +1,3 @@
-
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -49,7 +47,7 @@ const setCMYKColor = (doc: jsPDF, hexColor: string) => {
   const cmyk = hexToCMYK(hexColor);
   // Use internal jsPDF method to set CMYK color
   (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} ${cmyk.k/100} k`);
-  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} ${cmyk.k/100} K`);
+  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} K`);
 };
 
 const normalizePhotoFilename = (filename: string): string[] => {
@@ -216,16 +214,16 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
 
 // Improved text positioning to exactly match CSS rendering
 const getTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // CSS positions text from the top of the line height, jsPDF from baseline
+  // CSS positions text from the top of the element, jsPDF from baseline
   // This calculation ensures perfect alignment between preview and PDF
-  const baselineOffset = fontSize * 0.75; // More precise baseline calculation
+  const baselineOffset = fontSize * 0.85; // Adjusted for better alignment
   return {
     x: x, // Keep X position exact
     y: y + baselineOffset // Adjust Y for baseline positioning
   };
 };
 
-// Font mapping to ensure consistent rendering
+// Font mapping to ensure consistent rendering with exact size matching
 const mapFontFamily = (fontFamily: string): string => {
   const fontMap: Record<string, string> = {
     'helvetica': 'helvetica',
@@ -237,6 +235,12 @@ const mapFontFamily = (fontFamily: string): string => {
   };
   
   return fontMap[fontFamily.toLowerCase()] || 'helvetica';
+};
+
+// Adjust font size to match CSS rendering exactly
+const adjustFontSizeForPDF = (cssSize: number): number => {
+  // CSS and PDF font sizes render differently - this compensates for the difference
+  return cssSize * 0.95; // Slight reduction to match CSS rendering
 };
 
 const generatePDF = async (
@@ -320,8 +324,9 @@ const generatePDF = async (
         const mappedFont = mapFontFamily(field.fontFamily);
         doc.setFont(mappedFont, field.fontWeight);
         
-        // Use EXACT font size matching preview
-        doc.setFontSize(field.fontSize);
+        // Use adjusted font size for exact matching
+        const adjustedFontSize = adjustFontSizeForPDF(field.fontSize);
+        doc.setFontSize(adjustedFontSize);
         
         // Set CMYK color instead of RGB
         setCMYKColor(doc, field.color);
@@ -340,7 +345,7 @@ const generatePDF = async (
         // Position text with pixel-perfect coordinates
         doc.text(textLines, textPos.x, textPos.y);
         
-        console.log(`Text positioned: ${field.field} at (${textPos.x}, ${textPos.y}) with font ${mappedFont} size ${field.fontSize}`);
+        console.log(`Text positioned: ${field.field} at (${textPos.x}, ${textPos.y}) with font ${mappedFont} size ${adjustedFontSize} (original: ${field.fontSize})`);
       }
     }
 
@@ -362,4 +367,3 @@ declare global {
 window.generatePDF = generatePDF;
 
 export { generatePDF };
-
