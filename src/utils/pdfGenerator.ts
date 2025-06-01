@@ -18,36 +18,23 @@ export interface CardField {
   photoHeight?: number;
 }
 
-// Convert RGB hex color to CMYK for better printing
-const hexToCMYK = (hex: string): { c: number; m: number; y: number; k: number } => {
+// Convert hex color to RGB for PDF
+const hexToRGB = (hex: string): { r: number; g: number; b: number } => {
   // Remove # if present
   hex = hex.replace('#', '');
   
   // Convert hex to RGB
-  const r = parseInt(hex.substr(0, 2), 16) / 255;
-  const g = parseInt(hex.substr(2, 2), 16) / 255;
-  const b = parseInt(hex.substr(4, 2), 16) / 255;
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
   
-  // Calculate CMYK values
-  const k = 1 - Math.max(r, g, b);
-  const c = k === 1 ? 0 : (1 - r - k) / (1 - k);
-  const m = k === 1 ? 0 : (1 - g - k) / (1 - k);
-  const y = k === 1 ? 0 : (1 - b - k) / (1 - k);
-  
-  return {
-    c: Math.round(c * 100),
-    m: Math.round(m * 100),
-    y: Math.round(y * 100),
-    k: Math.round(k * 100)
-  };
+  return { r, g, b };
 };
 
-// Set CMYK color in jsPDF
-const setCMYKColor = (doc: jsPDF, hexColor: string) => {
-  const cmyk = hexToCMYK(hexColor);
-  // Use internal jsPDF method to set CMYK color
-  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} ${cmyk.k/100} k`);
-  (doc as any).internal.write(`${cmyk.c/100} ${cmyk.m/100} ${cmyk.y/100} K`);
+// Set RGB color in jsPDF
+const setRGBColor = (doc: jsPDF, hexColor: string) => {
+  const rgb = hexToRGB(hexColor);
+  doc.setTextColor(rgb.r, rgb.g, rgb.b);
 };
 
 const normalizePhotoFilename = (filename: string): string[] => {
@@ -212,35 +199,35 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// Improved text positioning to exactly match CSS rendering
+// Precise text positioning to exactly match CSS rendering
 const getTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // CSS positions text from the top of the element, jsPDF from baseline
+  // CSS positions text from the top-left corner, jsPDF from baseline
   // This calculation ensures perfect alignment between preview and PDF
-  const baselineOffset = fontSize * 0.85; // Adjusted for better alignment
+  const baselineOffset = fontSize * 0.82; // Fine-tuned for exact alignment
   return {
     x: x, // Keep X position exact
     y: y + baselineOffset // Adjust Y for baseline positioning
   };
 };
 
-// Font mapping to ensure consistent rendering with exact size matching
+// Font mapping with exact CSS equivalents
 const mapFontFamily = (fontFamily: string): string => {
   const fontMap: Record<string, string> = {
     'helvetica': 'helvetica',
-    'arial': 'helvetica', // Arial maps to helvetica in jsPDF
+    'arial': 'helvetica',
     'times': 'times',
-    'georgia': 'times', // Georgia maps to times
+    'georgia': 'times',
     'courier': 'courier',
-    'verdana': 'helvetica', // Verdana maps to helvetica
+    'verdana': 'helvetica',
   };
   
   return fontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
-// Adjust font size to match CSS rendering exactly
+// Exact font size matching for CSS-PDF consistency
 const adjustFontSizeForPDF = (cssSize: number): number => {
-  // CSS and PDF font sizes render differently - this compensates for the difference
-  return cssSize * 0.95; // Slight reduction to match CSS rendering
+  // No adjustment needed - use exact size for perfect matching
+  return cssSize;
 };
 
 const generatePDF = async (
@@ -250,30 +237,26 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Use EXACT dimensions matching the preview with no scaling
+  // Use EXACT dimensions matching the preview
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with exact preview dimensions and CMYK color space
+  // Create PDF with exact preview dimensions and RGB color space
   const doc = new jsPDF({
     orientation,
     unit: 'px',
     format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
-    compress: false // Disable compression for better CMYK handling
+    compress: false
   });
 
-  // Set PDF to use CMYK color space
-  (doc as any).internal.write('/CS /DeviceCMYK cs');
-  (doc as any).internal.write('/CS /DeviceCMYK CS');
-
-  // Convert background for CMYK compatibility
-  const backgroundCMYK = backgroundImage ? await convertBackgroundToCMYKCompatible(backgroundImage) : null;
+  // Convert background for RGB compatibility
+  const backgroundRGB = backgroundImage ? await convertBackgroundToCMYKCompatible(backgroundImage) : null;
 
   for (const record of records) {
-    if (backgroundCMYK) {
-      const img = await loadImageWithExactAlignment(backgroundCMYK);
+    if (backgroundRGB) {
+      const img = await loadImageWithExactAlignment(backgroundRGB);
       // Add background with exact dimensions and positioning
       doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height, '', 'NONE');
     }
@@ -310,11 +293,11 @@ const generatePDF = async (
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          // Set CMYK color for missing photo text with proper positioning
+          // Set RGB color for missing photo text
           const mappedFont = mapFontFamily(field.fontFamily);
           doc.setFont(mappedFont, field.fontWeight);
           doc.setFontSize(field.fontSize);
-          setCMYKColor(doc, field.color);
+          setRGBColor(doc, field.color);
           
           const textPos = getTextPosition(field.x, field.y, field.fontSize);
           doc.text(`Photo Missing: ${field.field}`, textPos.x, textPos.y);
@@ -324,12 +307,12 @@ const generatePDF = async (
         const mappedFont = mapFontFamily(field.fontFamily);
         doc.setFont(mappedFont, field.fontWeight);
         
-        // Use adjusted font size for exact matching
+        // Use exact font size for perfect matching
         const adjustedFontSize = adjustFontSizeForPDF(field.fontSize);
         doc.setFontSize(adjustedFontSize);
         
-        // Set CMYK color instead of RGB
-        setCMYKColor(doc, field.color);
+        // Set RGB color instead of CMYK
+        setRGBColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
@@ -345,7 +328,7 @@ const generatePDF = async (
         // Position text with pixel-perfect coordinates
         doc.text(textLines, textPos.x, textPos.y);
         
-        console.log(`Text positioned: ${field.field} at (${textPos.x}, ${textPos.y}) with font ${mappedFont} size ${adjustedFontSize} (original: ${field.fontSize})`);
+        console.log(`Text positioned: ${field.field} at (${textPos.x}, ${textPos.y}) with font ${mappedFont} size ${adjustedFontSize}`);
       }
     }
 
@@ -354,8 +337,8 @@ const generatePDF = async (
     }
   }
 
-  // Save with CMYK color profile information
-  doc.save('id-cards-cmyk.pdf');
+  // Save with RGB color profile
+  doc.save('id-cards-rgb.pdf');
 };
 
 declare global {
