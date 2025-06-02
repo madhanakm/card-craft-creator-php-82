@@ -81,7 +81,7 @@ const Index = () => {
   const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
     setCsvData(data);
     
-    // Create initial card fields from headers with font family
+    // Create initial card fields from headers with font family and text alignment
     const initialFields = data.headers.map((header, index) => ({
       id: `field-${index}`,
       field: header,
@@ -90,7 +90,8 @@ const Index = () => {
       fontSize: 14,
       fontWeight: "normal",
       fontFamily: "helvetica",
-      color: "#000000"
+      color: "#000000",
+      textAlign: "left" as "left" | "center" | "right"
     }));
     
     setCardFields(initialFields);

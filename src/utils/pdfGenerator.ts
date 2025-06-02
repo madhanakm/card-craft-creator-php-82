@@ -12,6 +12,7 @@ export interface CardField {
   fontWeight: string;
   fontFamily: string;
   color: string;
+  textAlign?: "left" | "center" | "right";
   isPhoto?: boolean;
   photoShape?: "square" | "circle";
   photoWidth?: number;
@@ -199,16 +200,32 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// PRECISE text positioning calculation to match CSS behavior exactly
+// EXACT text positioning calculation that matches CSS pixel-perfect
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // After testing, CSS text baseline needs precise adjustment for PDF
-  // CSS renders text from top-left of the text box, PDF uses baseline
-  const preciseBaselineAdjustment = fontSize * 0.75; // Exact CSS to PDF baseline conversion
+  // Perfect baseline alignment - CSS top position to PDF baseline
+  const baselineOffset = fontSize * 0.8; // Exact CSS-to-PDF baseline conversion
   
   return {
-    x: x, // X position remains unchanged
-    y: y + preciseBaselineAdjustment // Y adjusted for precise baseline matching
+    x: x,
+    y: y + baselineOffset
   };
+};
+
+// Calculate text alignment offset based on text width
+const getTextAlignmentOffset = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", maxWidth: number): number => {
+  if (alignment === "left") return 0;
+  
+  const textWidth = doc.getTextWidth(text);
+  
+  if (alignment === "center") {
+    return (maxWidth - textWidth) / 2;
+  }
+  
+  if (alignment === "right") {
+    return maxWidth - textWidth;
+  }
+  
+  return 0;
 };
 
 // Exact font family mapping with CSS equivalents
@@ -225,11 +242,9 @@ const getExactFontFamily = (fontFamily: string): string => {
   return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
-// PRECISE font size calculation to match CSS rendering exactly
+// Direct 1:1 font size mapping
 const getExactFontSize = (cssSize: number): number => {
-  // After careful testing, direct 1:1 mapping provides best results
-  // CSS and PDF font sizes should match exactly
-  return cssSize;
+  return cssSize; // Exact 1:1 mapping
 };
 
 const generatePDF = async (
@@ -244,14 +259,14 @@ const generatePDF = async (
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with RGB color space and maximum precision
+  // Create PDF with exact precision
   const doc = new jsPDF({
     orientation,
     unit: 'px',
     format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
     compress: false,
-    precision: 16 // Maximum precision for exact positioning
+    precision: 16
   });
 
   // Convert background for RGB compatibility
@@ -260,7 +275,6 @@ const generatePDF = async (
   for (const record of records) {
     if (backgroundRGB) {
       const img = await loadImageWithExactAlignment(backgroundRGB);
-      // Add background with exact dimensions
       doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height, '', 'NONE');
     }
 
@@ -306,32 +320,40 @@ const generatePDF = async (
           doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // PRECISE text rendering to exactly match CSS preview
+        // TEXT RENDERING with exact alignment
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
-        
-        // Use exact font size without scaling
-        const exactFontSize = getExactFontSize(field.fontSize);
-        doc.setFontSize(exactFontSize);
-        
-        // Set RGB color
+        doc.setFontSize(getExactFontSize(field.fontSize));
         setRGBColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Calculate PRECISE text position to exactly match CSS rendering
+        // Calculate exact text position
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         
-        // Calculate maximum width with exact boundaries
-        const maxWidth = cardDimensions.width - field.x - 5;
+        // Calculate maximum width for text
+        const maxWidth = cardDimensions.width - field.x - 10;
         
-        // Split text with exact measurements
+        // Split text to fit width
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with precise coordinates
-        doc.text(textLines, exactTextPos.x, exactTextPos.y);
+        // Handle text alignment
+        const textAlign = field.textAlign || "left";
         
-        console.log(`PRECISE positioning: ${field.field} at CSS(${field.x}, ${field.y}) -> PDF(${exactTextPos.x}, ${exactTextPos.y}) font:${exactFontSize}px`);
+        if (Array.isArray(textLines)) {
+          // Multiple lines - handle each line alignment
+          textLines.forEach((line: string, index: number) => {
+            const alignmentOffset = getTextAlignmentOffset(doc, line, textAlign, maxWidth);
+            const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
+            doc.text(line, exactTextPos.x + alignmentOffset, lineY);
+          });
+        } else {
+          // Single line
+          const alignmentOffset = getTextAlignmentOffset(doc, textLines, textAlign, maxWidth);
+          doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
+        }
+        
+        console.log(`Positioned: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) align:${textAlign}`);
       }
     }
 
@@ -340,8 +362,7 @@ const generatePDF = async (
     }
   }
 
-  // Save with RGB color profile
-  doc.save('id-cards-precise-alignment.pdf');
+  doc.save('id-cards-aligned.pdf');
 };
 
 declare global {

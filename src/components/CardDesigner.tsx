@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -221,6 +221,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     const updatedFields = fields.map(field => {
       if (field.id === fieldId) {
         return { ...field, fontFamily };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
+  const handleTextAlignChange = (textAlign: "left" | "center" | "right", fieldId: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.id === fieldId) {
+        return { ...field, textAlign };
       }
       return field;
     });
@@ -618,6 +629,40 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Text Alignment Controls */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <AlignCenter className="h-4 w-4 text-gray-500" />
+                    <div className="flex space-x-1">
+                      <Button
+                        variant={field.textAlign === "left" || !field.textAlign ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleTextAlignChange("left", field.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <AlignLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={field.textAlign === "center" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleTextAlignChange("center", field.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <AlignCenter className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={field.textAlign === "right" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleTextAlignChange("right", field.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <AlignRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {field.textAlign || "left"}
+                    </span>
                   </div>
                   
                   <div className="flex items-center gap-3 mb-3">

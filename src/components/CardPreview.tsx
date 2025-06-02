@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import { useState, useEffect } from "react";
@@ -192,7 +191,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             );
           }
           
-          // Handle regular text fields - exact same positioning as PDF
+          // Handle regular text fields with alignment
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
           
@@ -208,7 +207,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
                 maxWidth: `${cardDimensions.width - field.x - 10}px`,
-                wordBreak: "break-word"
+                wordBreak: "break-word",
+                textAlign: field.textAlign || "left"
               }}
             >
               {cleanedValue}
