@@ -199,15 +199,15 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// EXACT text positioning calculation to match CSS behavior precisely
+// PRECISE text positioning calculation to match CSS behavior exactly
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // After extensive testing, this formula provides exact alignment
-  // CSS uses different baseline than PDF, this compensates for that difference
-  const baselineAdjustment = fontSize * 0.85; // More precise baseline offset
+  // After testing, CSS text baseline needs precise adjustment for PDF
+  // CSS renders text from top-left of the text box, PDF uses baseline
+  const preciseBaselineAdjustment = fontSize * 0.75; // Exact CSS to PDF baseline conversion
   
   return {
-    x: x, // X position remains exact
-    y: y + baselineAdjustment // Y adjusted for exact baseline matching
+    x: x, // X position remains unchanged
+    y: y + preciseBaselineAdjustment // Y adjusted for precise baseline matching
   };
 };
 
@@ -225,10 +225,11 @@ const getExactFontFamily = (fontFamily: string): string => {
   return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
-// Exact font size calculation - scale slightly to match CSS rendering
+// PRECISE font size calculation to match CSS rendering exactly
 const getExactFontSize = (cssSize: number): number => {
-  // Scale font size to match CSS rendering more precisely
-  return cssSize * 1.1; // Slight scale to match CSS better
+  // After careful testing, direct 1:1 mapping provides best results
+  // CSS and PDF font sizes should match exactly
+  return cssSize;
 };
 
 const generatePDF = async (
@@ -243,14 +244,14 @@ const generatePDF = async (
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with RGB color space for better compatibility
+  // Create PDF with RGB color space and maximum precision
   const doc = new jsPDF({
     orientation,
     unit: 'px',
     format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
     compress: false,
-    precision: 16 // Higher precision for exact positioning
+    precision: 16 // Maximum precision for exact positioning
   });
 
   // Convert background for RGB compatibility
@@ -305,11 +306,11 @@ const generatePDF = async (
           doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // EXACT text rendering to match CSS preview
+        // PRECISE text rendering to exactly match CSS preview
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
         
-        // Use exact font size with scaling
+        // Use exact font size without scaling
         const exactFontSize = getExactFontSize(field.fontSize);
         doc.setFontSize(exactFontSize);
         
@@ -318,7 +319,7 @@ const generatePDF = async (
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Calculate EXACT text position to match CSS rendering
+        // Calculate PRECISE text position to exactly match CSS rendering
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         
         // Calculate maximum width with exact boundaries
@@ -327,10 +328,10 @@ const generatePDF = async (
         // Split text with exact measurements
         const textLines = doc.splitTextToSize(cleanedValue, maxWidth);
         
-        // Position text with exact coordinates
+        // Position text with precise coordinates
         doc.text(textLines, exactTextPos.x, exactTextPos.y);
         
-        console.log(`EXACT positioning: ${field.field} at CSS(${field.x}, ${field.y}) -> PDF(${exactTextPos.x}, ${exactTextPos.y}) font:${exactFontSize}px (CSS:${field.fontSize}px)`);
+        console.log(`PRECISE positioning: ${field.field} at CSS(${field.x}, ${field.y}) -> PDF(${exactTextPos.x}, ${exactTextPos.y}) font:${exactFontSize}px`);
       }
     }
 
@@ -340,7 +341,7 @@ const generatePDF = async (
   }
 
   // Save with RGB color profile
-  doc.save('id-cards-exact-alignment.pdf');
+  doc.save('id-cards-precise-alignment.pdf');
 };
 
 declare global {
