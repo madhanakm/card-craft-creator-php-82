@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,26 +44,21 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [showAlignmentGuides, setShowAlignmentGuides] = useState(true);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [isDraggingGuide, setIsDraggingGuide] = useState<string | null>(null);
+  const [isResizingTextArea, setIsResizingTextArea] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'width' | 'height' | 'both' | null>(null);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
   
-  // Professional print dimensions in mm - converted to pixels for display (1mm = ~3.78px at 96 DPI)
-  const MM_TO_PX = 3.78;
-  const cardDimensionsMM = orientation === "portrait" 
-    ? { width: 88, height: 58 } // 88mm x 58mm
-    : { width: 58, height: 88 }; // 58mm x 88mm
-    
-  const cardDimensionsPX = {
-    width: Math.round(cardDimensionsMM.width * MM_TO_PX),
-    height: Math.round(cardDimensionsMM.height * MM_TO_PX)
-  };
-
-  // Convert mm to pixels for display
-  const mmToPx = (mm: number) => Math.round(mm * MM_TO_PX);
+  // Card dimensions - same as preview and PDF
+  const cardDimensions = orientation === "portrait" 
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
 
   const addAlignmentGuide = (type: 'horizontal' | 'vertical') => {
     const newGuide: AlignmentGuide = {
       id: `guide-${Date.now()}`,
       type,
-      position: type === 'horizontal' ? cardDimensionsPX.height / 2 : cardDimensionsPX.width / 2
+      position: type === 'horizontal' ? cardDimensions.height / 2 : cardDimensions.width / 2
     };
     setAlignmentGuides([...alignmentGuides, newGuide]);
   };
@@ -92,10 +86,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     
     if (guide.type === 'horizontal') {
       newPosition = e.clientY - containerRect.top - 20;
-      newPosition = Math.max(0, Math.min(newPosition, cardDimensionsPX.height));
+      newPosition = Math.max(0, Math.min(newPosition, cardDimensions.height));
     } else {
       newPosition = e.clientX - containerRect.left - 20;
-      newPosition = Math.max(0, Math.min(newPosition, cardDimensionsPX.width));
+      newPosition = Math.max(0, Math.min(newPosition, cardDimensions.width));
     }
     
     setAlignmentGuides(alignmentGuides.map(g => 
@@ -105,6 +99,58 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
   const handleGuideMouseUp = () => {
     setIsDraggingGuide(null);
+  };
+
+  const handleTextAreaResizeStart = (e: React.MouseEvent, fieldId: string, handle: 'width' | 'height' | 'both') => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const field = fields.find(f => f.id === fieldId);
+    if (!field) return;
+    
+    setIsResizingTextArea(fieldId);
+    setResizeHandle(handle);
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ 
+      width: field.textAreaWidth || 200, 
+      height: field.textAreaHeight || 40 
+    });
+  };
+
+  const handleTextAreaResize = (e: React.MouseEvent) => {
+    if (!isResizingTextArea || !resizeHandle) return;
+    
+    const deltaX = e.clientX - resizeStartPos.x;
+    const deltaY = e.clientY - resizeStartPos.y;
+    
+    let newWidth = resizeStartSize.width;
+    let newHeight = resizeStartSize.height;
+    
+    if (resizeHandle === 'width' || resizeHandle === 'both') {
+      newWidth = Math.max(50, Math.min(resizeStartSize.width + deltaX, cardDimensions.width - 20));
+    }
+    
+    if (resizeHandle === 'height' || resizeHandle === 'both') {
+      newHeight = Math.max(20, Math.min(resizeStartSize.height + deltaY, 200));
+    }
+    
+    const updatedFields = fields.map(field => {
+      if (field.id === isResizingTextArea) {
+        return { 
+          ...field, 
+          textAreaWidth: newWidth,
+          textAreaHeight: newHeight
+        };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
+  const handleTextAreaResizeEnd = () => {
+    setIsResizingTextArea(null);
+    setResizeHandle(null);
   };
 
   const handleDragStart = (e: React.MouseEvent, fieldId: string) => {
@@ -129,8 +175,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       let newX = e.clientX - containerRect.left - dragOffset.x - 20;
       let newY = e.clientY - containerRect.top - dragOffset.y - 20;
       
-      const boundedX = Math.max(0, Math.min(newX, cardDimensionsPX.width - 20));
-      const boundedY = Math.max(0, Math.min(newY, cardDimensionsPX.height - 20));
+      const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20));
+      const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20));
       
       const updatedFields = fields.map(field => {
         if (field.id === activeField) {
@@ -141,11 +187,16 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       
       onFieldsUpdate(updatedFields);
     }
+    
+    if (isResizingTextArea) {
+      handleTextAreaResize(e);
+    }
   };
 
   const handleDragEnd = () => {
     setIsDragging(false);
     setActiveField(null);
+    handleTextAreaResizeEnd();
   };
 
   const handleFontSizeChange = (size: number, fieldId: string) => {
@@ -211,8 +262,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           ...field, 
           isPhoto: !field.isPhoto,
           photoShape: field.isPhoto ? undefined : "square" as "square" | "circle",
-          photoWidth: field.isPhoto ? undefined : 15,
-          photoHeight: field.isPhoto ? undefined : 15
+          photoWidth: field.isPhoto ? undefined : 60,
+          photoHeight: field.isPhoto ? undefined : 60
         };
       }
       return field;
@@ -246,6 +297,20 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
+  const setTextAreaSize = (dimension: "width" | "height", value: number, fieldId: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.id === fieldId) {
+        return { 
+          ...field, 
+          [dimension === "width" ? "textAreaWidth" : "textAreaHeight"]: value 
+        };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
   const alignFields = (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
     if (!activeField) return;
     
@@ -262,19 +327,19 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             newX = 5;
             break;
           case 'center':
-            newX = cardDimensionsPX.width / 2 - 50;
+            newX = cardDimensions.width / 2 - 50;
             break;
           case 'right':
-            newX = cardDimensionsPX.width - 100;
+            newX = cardDimensions.width - 60;
             break;
           case 'top':
             newY = 5;
             break;
           case 'middle':
-            newY = cardDimensionsPX.height / 2;
+            newY = cardDimensions.height / 2;
             break;
           case 'bottom':
-            newY = cardDimensionsPX.height - 30;
+            newY = cardDimensions.height - 30;
             break;
         }
         
@@ -290,9 +355,9 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     if (!showGrid) return null;
     
     const lines = [];
-    const GRID_SIZE = 20;
+    const GRID_SIZE = 10;
     
-    for (let x = 0; x <= cardDimensionsPX.width; x += GRID_SIZE) {
+    for (let x = 0; x <= cardDimensions.width; x += GRID_SIZE) {
       lines.push(
         <div
           key={`v-${x}`}
@@ -300,13 +365,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           style={{
             left: `${x}px`,
             top: 0,
-            height: `${cardDimensionsPX.height}px`
+            height: `${cardDimensions.height}px`
           }}
         />
       );
     }
     
-    for (let y = 0; y <= cardDimensionsPX.height; y += GRID_SIZE) {
+    for (let y = 0; y <= cardDimensions.height; y += GRID_SIZE) {
       lines.push(
         <div
           key={`h-${y}`}
@@ -314,7 +379,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           style={{
             top: `${y}px`,
             left: 0,
-            width: `${cardDimensionsPX.width}px`
+            width: `${cardDimensions.width}px`
           }}
         />
       );
@@ -325,22 +390,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
   return (
     <div className="flex flex-col">
-      {/* Professional Print Info */}
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium text-blue-800">Professional Print Dimensions</h4>
-            <p className="text-sm text-blue-600">
-              {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"} 
-              <span className="ml-2 text-xs">({cardDimensionsPX.width}×{cardDimensionsPX.height}px display)</span>
-            </p>
-          </div>
-          <div className="text-xs text-blue-500">
-            Ready for Photoshop & CorelDraw
-          </div>
-        </div>
-      </div>
-
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded-lg">
         <Toggle pressed={showGrid} onPressedChange={setShowGrid} size="sm">
@@ -398,18 +447,18 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
       <div className="flex">
         <div className="w-5 h-5"></div>
-        <Ruler orientation="horizontal" length={cardDimensionsPX.width} />
+        <Ruler orientation="horizontal" length={cardDimensions.width} />
       </div>
       
       <div className="flex">
-        <Ruler orientation="vertical" length={cardDimensionsPX.height} />
+        <Ruler orientation="vertical" length={cardDimensions.height} />
         
         <div
           id="card-designer-container"
           className="relative overflow-hidden border border-gray-200"
           style={{
-            width: `${cardDimensionsPX.width}px`,
-            height: `${cardDimensionsPX.height}px`,
+            width: `${cardDimensions.width}px`,
+            height: `${cardDimensions.height}px`,
             backgroundImage: `url(${backgroundImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
@@ -460,34 +509,87 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           ))}
           
           {fields.map((field) => (
-            <div
-              key={field.id}
-              className={cn(
-                "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
-                activeField === field.id && "border-blue-500 shadow-lg",
-                field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
+            <div key={field.id}>
+              {/* Enhanced text area visualization with resize handles for non-photo fields */}
+              {!field.isPhoto && (
+                <div
+                  className={cn(
+                    "absolute border-2 bg-blue-50/30",
+                    activeField === field.id 
+                      ? "border-blue-500 border-solid shadow-lg" 
+                      : "border-blue-300 border-dashed"
+                  )}
+                  style={{
+                    left: `${field.x}px`,
+                    top: `${field.y}px`,
+                    width: `${field.textAreaWidth || 200}px`,
+                    height: `${field.textAreaHeight || 40}px`,
+                    zIndex: activeField === field.id ? 5 : 1,
+                  }}
+                  onClick={() => setActiveField(field.id)}
+                >
+                  {/* Text area label */}
+                  <div className="absolute -top-5 left-0 text-xs text-blue-600 bg-white px-1 rounded">
+                    Text Area: {field.textAreaWidth || 200}×{field.textAreaHeight || 40}
+                  </div>
+                  
+                  {/* Resize handles - only show when field is active */}
+                  {activeField === field.id && (
+                    <>
+                      {/* Right edge resize handle (width) */}
+                      <div
+                        className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize bg-blue-500 opacity-50 hover:opacity-100"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'width')}
+                        title="Resize width"
+                      />
+                      
+                      {/* Bottom edge resize handle (height) */}
+                      <div
+                        className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize bg-blue-500 opacity-50 hover:opacity-100"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'height')}
+                        title="Resize height"
+                      />
+                      
+                      {/* Bottom-right corner resize handle (both) */}
+                      <div
+                        className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize bg-blue-600 hover:bg-blue-700"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'both')}
+                        title="Resize both"
+                      />
+                    </>
+                  )}
+                </div>
               )}
-              style={{
-                left: `${field.x}px`,
-                top: `${field.y}px`,
-                fontSize: `${field.fontSize}px`,
-                fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
-                fontFamily: field.fontFamily || "helvetica",
-                color: field.color || "inherit",
-                zIndex: activeField === field.id ? 10 : 1,
-              }}
-              onMouseDown={(e) => handleDragStart(e, field.id)}
-            >
-              <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
-              <span>
-                {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
-              </span>
+              
+              {/* Field element */}
+              <div
+                className={cn(
+                  "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
+                  activeField === field.id && "border-blue-500 shadow-lg",
+                  field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
+                )}
+                style={{
+                  left: `${field.x}px`,
+                  top: `${field.y}px`,
+                  fontSize: `${field.fontSize}px`,
+                  fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
+                  fontFamily: field.fontFamily || "helvetica",
+                  color: field.color || "inherit",
+                  zIndex: activeField === field.id ? 10 : 1,
+                }}
+                onMouseDown={(e) => handleDragStart(e, field.id)}
+              >
+                <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
+                <span>
+                  {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
+                </span>
+              </div>
             </div>
           ))}
           
           {activeField && (
             <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
-              x: {fields.find(f => f.id === activeField)?.x}px, y: {fields.find(f => f.id === activeField)?.y}px
+              x: {fields.find(f => f.id === activeField)?.x}, y: {fields.find(f => f.id === activeField)?.y}
             </div>
           )}
         </div>
@@ -516,7 +618,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
               
               {field.isPhoto ? (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 mb-2">Photo Field Settings (Millimeters)</p>
+                  <p className="text-xs text-gray-500 mb-2">Photo Field Settings</p>
                   
                   <div className="flex space-x-2">
                     <Button
@@ -539,45 +641,84 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Width (mm)</label>
+                      <label className="text-xs text-gray-500 block mb-1">Width</label>
                       <Slider
-                        value={[field.photoWidth || 15]}
-                        min={5}
-                        max={40}
-                        step={1}
+                        value={[field.photoWidth || 60]}
+                        min={30}
+                        max={150}
+                        step={5}
                         onValueChange={(value) => setPhotoSize("width", value[0], field.id)}
                         className="flex-1"
                       />
-                      <span className="text-xs block text-right mt-1">{field.photoWidth || 15}mm</span>
+                      <span className="text-xs block text-right mt-1">{field.photoWidth || 60}px</span>
                     </div>
                     
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Height (mm)</label>
+                      <label className="text-xs text-gray-500 block mb-1">Height</label>
                       <Slider
-                        value={[field.photoHeight || 15]}
-                        min={5}
-                        max={40}
-                        step={1}
+                        value={[field.photoHeight || 60]}
+                        min={30}
+                        max={150}
+                        step={5}
                         onValueChange={(value) => setPhotoSize("height", value[0], field.id)}
                         className="flex-1"
                       />
-                      <span className="text-xs block text-right mt-1">{field.photoHeight || 15}mm</span>
+                      <span className="text-xs block text-right mt-1">{field.photoHeight || 60}px</span>
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
+                  {/* Text Area Size Controls */}
+                  <div className="space-y-3 mb-4 p-2 bg-blue-50 rounded">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Maximize2 className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Text Area</span>
+                      <span className="text-xs text-blue-600">
+                        (Click field to see resize handles)
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 block mb-1">Width</label>
+                        <Slider
+                          value={[field.textAreaWidth || 200]}
+                          min={50}
+                          max={cardDimensions.width - 20}
+                          step={5}
+                          onValueChange={(value) => setTextAreaSize("width", value[0], field.id)}
+                          className="flex-1"
+                        />
+                        <span className="text-xs block text-right mt-1">{field.textAreaWidth || 200}px</span>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs text-gray-600 block mb-1">Height</label>
+                        <Slider
+                          value={[field.textAreaHeight || 40]}
+                          min={20}
+                          max={200}
+                          step={5}
+                          onValueChange={(value) => setTextAreaSize("height", value[0], field.id)}
+                          className="flex-1"
+                        />
+                        <span className="text-xs block text-right mt-1">{field.textAreaHeight || 40}px</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3 mb-3">
                     <Type className="h-4 w-4 text-gray-500" />
                     <Slider
                       value={[field.fontSize]}
                       min={8}
-                      max={48}
+                      max={36}
                       step={1}
                       onValueChange={(value) => handleFontSizeChange(value[0], field.id)}
                       className="flex-1"
                     />
-                    <span className="text-xs w-12 text-right">{field.fontSize}px</span>
+                    <span className="text-xs w-8 text-right">{field.fontSize}px</span>
                   </div>
 
                   <div className="flex items-center gap-3 mb-3">
