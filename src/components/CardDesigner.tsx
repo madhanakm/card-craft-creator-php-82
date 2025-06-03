@@ -45,6 +45,9 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [isDraggingGuide, setIsDraggingGuide] = useState<string | null>(null);
   const [isResizingTextArea, setIsResizingTextArea] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'width' | 'height' | 'both' | null>(null);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
   
   // Card dimensions - same as preview and PDF
   const cardDimensions = orientation === "portrait" 
@@ -98,6 +101,58 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     setIsDraggingGuide(null);
   };
 
+  const handleTextAreaResizeStart = (e: React.MouseEvent, fieldId: string, handle: 'width' | 'height' | 'both') => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const field = fields.find(f => f.id === fieldId);
+    if (!field) return;
+    
+    setIsResizingTextArea(fieldId);
+    setResizeHandle(handle);
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ 
+      width: field.textAreaWidth || 200, 
+      height: field.textAreaHeight || 40 
+    });
+  };
+
+  const handleTextAreaResize = (e: React.MouseEvent) => {
+    if (!isResizingTextArea || !resizeHandle) return;
+    
+    const deltaX = e.clientX - resizeStartPos.x;
+    const deltaY = e.clientY - resizeStartPos.y;
+    
+    let newWidth = resizeStartSize.width;
+    let newHeight = resizeStartSize.height;
+    
+    if (resizeHandle === 'width' || resizeHandle === 'both') {
+      newWidth = Math.max(50, Math.min(resizeStartSize.width + deltaX, cardDimensions.width - 20));
+    }
+    
+    if (resizeHandle === 'height' || resizeHandle === 'both') {
+      newHeight = Math.max(20, Math.min(resizeStartSize.height + deltaY, 200));
+    }
+    
+    const updatedFields = fields.map(field => {
+      if (field.id === isResizingTextArea) {
+        return { 
+          ...field, 
+          textAreaWidth: newWidth,
+          textAreaHeight: newHeight
+        };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
+  const handleTextAreaResizeEnd = () => {
+    setIsResizingTextArea(null);
+    setResizeHandle(null);
+  };
+
   const handleDragStart = (e: React.MouseEvent, fieldId: string) => {
     const field = fields.find(f => f.id === fieldId);
     if (!field) return;
@@ -113,30 +168,35 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   };
 
   const handleDrag = (e: React.MouseEvent) => {
-    if (!isDragging || !activeField) return;
+    if (isDragging && activeField) {
+      const containerRect = document.getElementById('card-designer-container')?.getBoundingClientRect();
+      if (!containerRect) return;
+      
+      let newX = e.clientX - containerRect.left - dragOffset.x - 20;
+      let newY = e.clientY - containerRect.top - dragOffset.y - 20;
+      
+      const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20));
+      const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20));
+      
+      const updatedFields = fields.map(field => {
+        if (field.id === activeField) {
+          return { ...field, x: boundedX, y: boundedY };
+        }
+        return field;
+      });
+      
+      onFieldsUpdate(updatedFields);
+    }
     
-    const containerRect = document.getElementById('card-designer-container')?.getBoundingClientRect();
-    if (!containerRect) return;
-    
-    let newX = e.clientX - containerRect.left - dragOffset.x - 20;
-    let newY = e.clientY - containerRect.top - dragOffset.y - 20;
-    
-    const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20));
-    const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20));
-    
-    const updatedFields = fields.map(field => {
-      if (field.id === activeField) {
-        return { ...field, x: boundedX, y: boundedY };
-      }
-      return field;
-    });
-    
-    onFieldsUpdate(updatedFields);
+    if (isResizingTextArea) {
+      handleTextAreaResize(e);
+    }
   };
 
   const handleDragEnd = () => {
     setIsDragging(false);
     setActiveField(null);
+    handleTextAreaResizeEnd();
   };
 
   const handleFontSizeChange = (size: number, fieldId: string) => {
@@ -201,7 +261,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         return { 
           ...field, 
           isPhoto: !field.isPhoto,
-          // Set default values if toggling to photo
           photoShape: field.isPhoto ? undefined : "square" as "square" | "circle",
           photoWidth: field.isPhoto ? undefined : 60,
           photoHeight: field.isPhoto ? undefined : 60
@@ -451,12 +510,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           
           {fields.map((field) => (
             <div key={field.id}>
-              {/* Text area visualization for non-photo fields */}
+              {/* Enhanced text area visualization with resize handles for non-photo fields */}
               {!field.isPhoto && (
                 <div
                   className={cn(
-                    "absolute border-2 border-dashed border-blue-300 bg-blue-50/20",
-                    activeField === field.id && "border-blue-500 bg-blue-100/30"
+                    "absolute border-2 bg-blue-50/30",
+                    activeField === field.id 
+                      ? "border-blue-500 border-solid shadow-lg" 
+                      : "border-blue-300 border-dashed"
                   )}
                   style={{
                     left: `${field.x}px`,
@@ -465,7 +526,39 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     height: `${field.textAreaHeight || 40}px`,
                     zIndex: activeField === field.id ? 5 : 1,
                   }}
-                />
+                  onClick={() => setActiveField(field.id)}
+                >
+                  {/* Text area label */}
+                  <div className="absolute -top-5 left-0 text-xs text-blue-600 bg-white px-1 rounded">
+                    Text Area: {field.textAreaWidth || 200}×{field.textAreaHeight || 40}
+                  </div>
+                  
+                  {/* Resize handles - only show when field is active */}
+                  {activeField === field.id && (
+                    <>
+                      {/* Right edge resize handle (width) */}
+                      <div
+                        className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize bg-blue-500 opacity-50 hover:opacity-100"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'width')}
+                        title="Resize width"
+                      />
+                      
+                      {/* Bottom edge resize handle (height) */}
+                      <div
+                        className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize bg-blue-500 opacity-50 hover:opacity-100"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'height')}
+                        title="Resize height"
+                      />
+                      
+                      {/* Bottom-right corner resize handle (both) */}
+                      <div
+                        className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize bg-blue-600 hover:bg-blue-700"
+                        onMouseDown={(e) => handleTextAreaResizeStart(e, field.id, 'both')}
+                        title="Resize both"
+                      />
+                    </>
+                  )}
+                </div>
               )}
               
               {/* Field element */}
@@ -581,6 +674,9 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     <div className="flex items-center gap-2 mb-2">
                       <Maximize2 className="h-4 w-4 text-blue-600" />
                       <span className="text-sm font-medium text-blue-800">Text Area</span>
+                      <span className="text-xs text-blue-600">
+                        (Click field to see resize handles)
+                      </span>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2">
