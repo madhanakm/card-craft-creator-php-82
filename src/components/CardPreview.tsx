@@ -20,10 +20,19 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   photoFolder,
   selectedFiles
 }) => {
-  // Use exact same dimensions as CardDesigner and PDF
-  const cardDimensions = orientation === "portrait" 
-    ? { width: 300, height: 480 } 
-    : { width: 480, height: 300 };
+  // Professional print dimensions in mm - converted to pixels for display (1mm = ~3.78px at 96 DPI)
+  const MM_TO_PX = 3.78;
+  const cardDimensionsMM = orientation === "portrait" 
+    ? { width: 88, height: 58 } // 88mm x 58mm
+    : { width: 58, height: 88 }; // 58mm x 88mm
+    
+  const cardDimensionsPX = {
+    width: Math.round(cardDimensionsMM.width * MM_TO_PX),
+    height: Math.round(cardDimensionsMM.height * MM_TO_PX)
+  };
+
+  // Convert mm to pixels for display
+  const mmToPx = (mm: number) => Math.round(mm * MM_TO_PX);
     
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
@@ -128,11 +137,21 @@ const CardPreview: React.FC<CardPreviewProps> = ({
 
   return (
     <div className="flex flex-col items-center">
+      {/* Professional Print Info */}
+      <div className="mb-3 p-2 bg-green-50 rounded border border-green-200 text-center">
+        <div className="text-sm font-medium text-green-800">
+          Professional Print Preview
+        </div>
+        <div className="text-xs text-green-600">
+          {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"} - Ready for Photoshop & CorelDraw
+        </div>
+      </div>
+
       <div
         className="rounded-lg overflow-hidden shadow-lg mb-4"
         style={{
-          width: `${cardDimensions.width}px`,
-          height: `${cardDimensions.height}px`,
+          width: `${cardDimensionsPX.width}px`,
+          height: `${cardDimensionsPX.height}px`,
           backgroundImage: `url(${backgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -156,10 +175,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                     field.photoShape === "circle" && "rounded-full"
                   )}
                   style={{
-                    left: `${field.x}px`,
-                    top: `${field.y}px`,
-                    width: `${field.photoWidth || 60}px`,
-                    height: `${field.photoHeight || 60}px`,
+                    left: `${mmToPx(field.x)}px`,
+                    top: `${mmToPx(field.y)}px`,
+                    width: `${mmToPx(field.photoWidth || 15)}px`,
+                    height: `${mmToPx(field.photoHeight || 15)}px`,
                   }}
                 >
                   <span className="text-xs text-gray-500 text-center px-1">
@@ -177,10 +196,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                   field.photoShape === "circle" && "rounded-full"
                 )}
                 style={{
-                  left: `${field.x}px`,
-                  top: `${field.y}px`,
-                  width: `${field.photoWidth || 60}px`,
-                  height: `${field.photoHeight || 60}px`,
+                  left: `${mmToPx(field.x)}px`,
+                  top: `${mmToPx(field.y)}px`,
+                  width: `${mmToPx(field.photoWidth || 15)}px`,
+                  height: `${mmToPx(field.photoHeight || 15)}px`,
                 }}
               >
                 <img 
@@ -195,18 +214,18 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           // Handle regular text fields with area-based alignment
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
-          const textAreaWidth = field.textAreaWidth || 200;
+          const textAreaWidth = mmToPx(field.textAreaWidth || 50);
           
           return (
             <div
               key={field.id}
               className="absolute"
               style={{
-                left: `${field.x}px`,
-                top: `${field.y}px`,
+                left: `${mmToPx(field.x)}px`,
+                top: `${mmToPx(field.y)}px`,
                 width: `${textAreaWidth}px`,
-                height: `${field.textAreaHeight || 40}px`,
-                fontSize: `${field.fontSize}px`,
+                height: `${mmToPx(field.textAreaHeight || 10)}px`,
+                fontSize: `${mmToPx(field.fontSize)}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
@@ -227,7 +246,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       </div>
       
       <p className="text-sm text-gray-500 italic text-center">
-        Preview shows exactly how the PDF will appear
+        Preview shows exactly how the PDF will appear in print ({cardDimensionsMM.width}mm × {cardDimensionsMM.height}mm)
       </p>
     </div>
   );
