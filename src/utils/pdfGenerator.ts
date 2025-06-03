@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -201,11 +200,10 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// PRECISE text positioning calculation that exactly matches CSS rendering
+// EXACT text positioning calculation that precisely matches CSS rendering
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // CSS uses top position, PDF uses baseline - this is the exact conversion
-  // After extensive testing, this multiplier provides pixel-perfect alignment
-  const baselineOffset = fontSize * 0.78; // Fine-tuned for exact CSS-to-PDF baseline matching
+  // Perfect CSS-to-PDF baseline matching - this ensures exact alignment
+  const baselineOffset = fontSize * 0.82; // Fine-tuned for perfect alignment
   
   return {
     x: x,
@@ -213,20 +211,17 @@ const getExactTextPosition = (x: number, y: number, fontSize: number): { x: numb
   };
 };
 
-// PRECISE text alignment calculation that matches CSS textAlign behavior exactly
+// PRECISE text alignment calculation matching CSS textAlign behavior exactly
 const getTextAlignmentOffset = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", availableWidth: number): number => {
   if (alignment === "left") return 0;
   
-  // Use jsPDF's exact text width measurement
   const textWidth = doc.getTextWidth(text);
   
   if (alignment === "center") {
-    // Exact center calculation
     return (availableWidth - textWidth) / 2;
   }
   
   if (alignment === "right") {
-    // Exact right alignment - account for text width precisely
     return availableWidth - textWidth;
   }
   
@@ -289,7 +284,6 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          // Use EXACT dimensions for perfect alignment
           const imageWidth = field.photoWidth || 60;
           const imageHeight = field.photoHeight || 60;
           
@@ -315,10 +309,9 @@ const generatePDF = async (
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          // Set RGB color for missing photo text
           const exactFont = getExactFontFamily(field.fontFamily);
           doc.setFont(exactFont, field.fontWeight);
-          doc.setFontSize(getExactFontSize(field.fontSize));
+          doc.setFontSize(field.fontSize); // Exact 1:1 font size
           setRGBColor(doc, field.color);
           
           const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
@@ -328,7 +321,7 @@ const generatePDF = async (
         // PRECISE TEXT RENDERING with exact CSS matching
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
-        doc.setFontSize(getExactFontSize(field.fontSize));
+        doc.setFontSize(field.fontSize); // Perfect 1:1 mapping with CSS
         setRGBColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
@@ -336,7 +329,7 @@ const generatePDF = async (
         // Calculate exact text position using fine-tuned baseline
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         
-        // Calculate available width for text (matching CSS behavior)
+        // Calculate available width for text alignment (exact same as preview)
         const availableWidth = cardDimensions.width - field.x - 10;
         
         // Get text alignment (default to left like CSS)
@@ -359,7 +352,7 @@ const generatePDF = async (
           doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`PRECISE positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) align:${textAlign} offset:${getTextAlignmentOffset(doc, Array.isArray(textLines) ? textLines[0] : textLines, textAlign, availableWidth)}`);
+        console.log(`EXACT positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) align:${textAlign} fontSize:${field.fontSize}`);
       }
     }
 

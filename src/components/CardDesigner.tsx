@@ -41,7 +41,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
-  const [snapToGrid, setSnapToGrid] = useState(true);
   const [showAlignmentGuides, setShowAlignmentGuides] = useState(true);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [isDraggingGuide, setIsDraggingGuide] = useState<string | null>(null);
@@ -50,13 +49,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
-
-  const GRID_SIZE = 10; // Snap to 10px grid
-
-  const snapToGridIfEnabled = (value: number) => {
-    if (!snapToGrid) return value;
-    return Math.round(value / GRID_SIZE) * GRID_SIZE;
-  };
 
   const addAlignmentGuide = (type: 'horizontal' | 'vertical') => {
     const newGuide: AlignmentGuide = {
@@ -89,10 +81,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     let newPosition: number;
     
     if (guide.type === 'horizontal') {
-      newPosition = e.clientY - containerRect.top - 20; // Account for ruler
+      newPosition = e.clientY - containerRect.top - 20;
       newPosition = Math.max(0, Math.min(newPosition, cardDimensions.height));
     } else {
-      newPosition = e.clientX - containerRect.left - 20; // Account for ruler
+      newPosition = e.clientX - containerRect.left - 20;
       newPosition = Math.max(0, Math.min(newPosition, cardDimensions.width));
     }
     
@@ -105,29 +97,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     setIsDraggingGuide(null);
   };
 
-  const snapToGuides = (x: number, y: number, threshold = 5) => {
-    let snappedX = x;
-    let snappedY = y;
-    
-    // Snap to vertical guides
-    for (const guide of alignmentGuides) {
-      if (guide.type === 'vertical' && Math.abs(x - guide.position) <= threshold) {
-        snappedX = guide.position;
-        break;
-      }
-    }
-    
-    // Snap to horizontal guides
-    for (const guide of alignmentGuides) {
-      if (guide.type === 'horizontal' && Math.abs(y - guide.position) <= threshold) {
-        snappedY = guide.position;
-        break;
-      }
-    }
-    
-    return { x: snappedX, y: snappedY };
-  };
-
   const handleDragStart = (e: React.MouseEvent, fieldId: string) => {
     const field = fields.find(f => f.id === fieldId);
     if (!field) return;
@@ -135,7 +104,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     setActiveField(fieldId);
     setIsDragging(true);
     
-    // Calculate the offset between mouse position and field position
     const rect = e.currentTarget.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
@@ -146,28 +114,15 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const handleDrag = (e: React.MouseEvent) => {
     if (!isDragging || !activeField) return;
     
-    // Get the container's position and dimensions
     const containerRect = document.getElementById('card-designer-container')?.getBoundingClientRect();
     if (!containerRect) return;
     
-    // Calculate new position accounting for the offset
-    let newX = e.clientX - containerRect.left - dragOffset.x - 20; // Account for ruler width
-    let newY = e.clientY - containerRect.top - dragOffset.y - 20; // Account for ruler height
+    let newX = e.clientX - containerRect.left - dragOffset.x - 20;
+    let newY = e.clientY - containerRect.top - dragOffset.y - 20;
     
-    // Snap to guides first
-    const snapped = snapToGuides(newX, newY);
-    newX = snapped.x;
-    newY = snapped.y;
+    const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20));
+    const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20));
     
-    // Then snap to grid if enabled
-    newX = snapToGridIfEnabled(newX);
-    newY = snapToGridIfEnabled(newY);
-    
-    // Reduced padding constraints - allow fields to be positioned closer to edges
-    const boundedX = Math.max(0, Math.min(newX, cardDimensions.width - 20)); // Reduced from 100 to 20
-    const boundedY = Math.max(0, Math.min(newY, cardDimensions.height - 20)); // Reduced from 30 to 20
-    
-    // Update the field position
     const updatedFields = fields.map(field => {
       if (field.id === activeField) {
         return { ...field, x: boundedX, y: boundedY };
@@ -295,26 +250,26 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         
         switch (alignment) {
           case 'left':
-            newX = 5; // Reduced from 10 to 5
+            newX = 5;
             break;
           case 'center':
-            newX = cardDimensions.width / 2 - 50; // Approximate center
+            newX = cardDimensions.width / 2 - 50;
             break;
           case 'right':
-            newX = cardDimensions.width - 60; // Reduced from 100 to 60
+            newX = cardDimensions.width - 60;
             break;
           case 'top':
-            newY = 5; // Reduced from 10 to 5
+            newY = 5;
             break;
           case 'middle':
             newY = cardDimensions.height / 2;
             break;
           case 'bottom':
-            newY = cardDimensions.height - 30; // Reduced from 50 to 30
+            newY = cardDimensions.height - 30;
             break;
         }
         
-        return { ...field, x: snapToGridIfEnabled(newX), y: snapToGridIfEnabled(newY) };
+        return { ...field, x: newX, y: newY };
       }
       return field;
     });
@@ -322,13 +277,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
-  // Generate grid lines
   const generateGridLines = () => {
     if (!showGrid) return null;
     
     const lines = [];
+    const GRID_SIZE = 10;
     
-    // Vertical lines
     for (let x = 0; x <= cardDimensions.width; x += GRID_SIZE) {
       lines.push(
         <div
@@ -343,7 +297,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       );
     }
     
-    // Horizontal lines
     for (let y = 0; y <= cardDimensions.height; y += GRID_SIZE) {
       lines.push(
         <div
@@ -367,9 +320,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded-lg">
         <Toggle pressed={showGrid} onPressedChange={setShowGrid} size="sm">
           <Grid className="h-4 w-4" />
-        </Toggle>
-        <Toggle pressed={snapToGrid} onPressedChange={setSnapToGrid} size="sm">
-          Snap
         </Toggle>
         <Toggle pressed={showAlignmentGuides} onPressedChange={setShowAlignmentGuides} size="sm">
           Guides
@@ -422,16 +372,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       </div>
 
       <div className="flex">
-        {/* Top ruler */}
         <div className="w-5 h-5"></div>
         <Ruler orientation="horizontal" length={cardDimensions.width} />
       </div>
       
       <div className="flex">
-        {/* Left ruler */}
         <Ruler orientation="vertical" length={cardDimensions.height} />
         
-        {/* Main design area */}
         <div
           id="card-designer-container"
           className="relative overflow-hidden border border-gray-200"
@@ -455,10 +402,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             handleGuideMouseUp();
           }}
         >
-          {/* Grid overlay */}
           {generateGridLines()}
           
-          {/* Alignment guides */}
           {showAlignmentGuides && alignmentGuides.map((guide) => (
             <div
               key={guide.id}
@@ -489,7 +434,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             </div>
           ))}
           
-          {/* Fields */}
           {fields.map((field) => (
             <div
               key={field.id}
@@ -516,7 +460,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             </div>
           ))}
           
-          {/* Show coordinates for active field */}
           {activeField && (
             <div className="absolute top-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
               x: {fields.find(f => f.id === activeField)?.x}, y: {fields.find(f => f.id === activeField)?.y}
