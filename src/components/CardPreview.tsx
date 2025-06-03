@@ -175,8 +175,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                     field.photoShape === "circle" && "rounded-full"
                   )}
                   style={{
-                    left: `${mmToPx(field.x)}px`,
-                    top: `${mmToPx(field.y)}px`,
+                    left: `${field.x}px`,
+                    top: `${field.y}px`,
                     width: `${mmToPx(field.photoWidth || 15)}px`,
                     height: `${mmToPx(field.photoHeight || 15)}px`,
                   }}
@@ -196,8 +196,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                   field.photoShape === "circle" && "rounded-full"
                 )}
                 style={{
-                  left: `${mmToPx(field.x)}px`,
-                  top: `${mmToPx(field.y)}px`,
+                  left: `${field.x}px`,
+                  top: `${field.y}px`,
                   width: `${mmToPx(field.photoWidth || 15)}px`,
                   height: `${mmToPx(field.photoHeight || 15)}px`,
                 }}
@@ -211,35 +211,28 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             );
           }
           
-          // Handle regular text fields with area-based alignment
+          // Handle regular text fields
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
-          const textAreaWidth = mmToPx(field.textAreaWidth || 50);
           
           return (
             <div
               key={field.id}
               className="absolute"
               style={{
-                left: `${mmToPx(field.x)}px`,
-                top: `${mmToPx(field.y)}px`,
-                width: `${textAreaWidth}px`,
-                height: `${mmToPx(field.textAreaHeight || 10)}px`,
-                fontSize: `${mmToPx(field.fontSize)}px`,
+                left: `${field.x}px`,
+                top: `${field.y}px`,
+                fontSize: `${field.fontSize}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
                 textAlign: field.textAlign || "left",
+                maxWidth: '200px',
                 overflow: 'hidden',
-                wordBreak: "break-word",
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: field.textAlign === "center" ? "center" : field.textAlign === "right" ? "flex-end" : "flex-start"
+                wordBreak: "break-word"
               }}
             >
-              <div style={{ width: '100%', textAlign: field.textAlign || "left" }}>
-                {cleanedValue}
-              </div>
+              {cleanedValue}
             </div>
           );
         })}
