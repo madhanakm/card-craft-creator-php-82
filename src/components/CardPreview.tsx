@@ -1,3 +1,4 @@
+
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import { useState, useEffect } from "react";
@@ -191,9 +192,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             );
           }
           
-          // Handle regular text fields with alignment
+          // Handle regular text fields with area-based alignment
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
+          const textAreaWidth = field.textAreaWidth || 200;
           
           return (
             <div
@@ -202,16 +204,23 @@ const CardPreview: React.FC<CardPreviewProps> = ({
               style={{
                 left: `${field.x}px`,
                 top: `${field.y}px`,
+                width: `${textAreaWidth}px`,
+                height: `${field.textAreaHeight || 40}px`,
                 fontSize: `${field.fontSize}px`,
                 fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
-                maxWidth: `${cardDimensions.width - field.x - 10}px`,
+                textAlign: field.textAlign || "left",
+                overflow: 'hidden',
                 wordBreak: "break-word",
-                textAlign: field.textAlign || "left"
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: field.textAlign === "center" ? "center" : field.textAlign === "right" ? "flex-end" : "flex-start"
               }}
             >
-              {cleanedValue}
+              <div style={{ width: '100%', textAlign: field.textAlign || "left" }}>
+                {cleanedValue}
+              </div>
             </div>
           );
         })}

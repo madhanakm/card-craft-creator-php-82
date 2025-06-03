@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [showAlignmentGuides, setShowAlignmentGuides] = useState(true);
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   const [isDraggingGuide, setIsDraggingGuide] = useState<string | null>(null);
+  const [isResizingTextArea, setIsResizingTextArea] = useState<string | null>(null);
   
   // Card dimensions - same as preview and PDF
   const cardDimensions = orientation === "portrait" 
@@ -229,6 +230,20 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         return { 
           ...field, 
           [dimension === "width" ? "photoWidth" : "photoHeight"]: value 
+        };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
+  const setTextAreaSize = (dimension: "width" | "height", value: number, fieldId: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.id === fieldId) {
+        return { 
+          ...field, 
+          [dimension === "width" ? "textAreaWidth" : "textAreaHeight"]: value 
         };
       }
       return field;
@@ -435,28 +450,47 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           ))}
           
           {fields.map((field) => (
-            <div
-              key={field.id}
-              className={cn(
-                "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
-                activeField === field.id && "border-blue-500 shadow-lg",
-                field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
+            <div key={field.id}>
+              {/* Text area visualization for non-photo fields */}
+              {!field.isPhoto && (
+                <div
+                  className={cn(
+                    "absolute border-2 border-dashed border-blue-300 bg-blue-50/20",
+                    activeField === field.id && "border-blue-500 bg-blue-100/30"
+                  )}
+                  style={{
+                    left: `${field.x}px`,
+                    top: `${field.y}px`,
+                    width: `${field.textAreaWidth || 200}px`,
+                    height: `${field.textAreaHeight || 40}px`,
+                    zIndex: activeField === field.id ? 5 : 1,
+                  }}
+                />
               )}
-              style={{
-                left: `${field.x}px`,
-                top: `${field.y}px`,
-                fontSize: `${field.fontSize}px`,
-                fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
-                fontFamily: field.fontFamily || "helvetica",
-                color: field.color || "inherit",
-                zIndex: activeField === field.id ? 10 : 1,
-              }}
-              onMouseDown={(e) => handleDragStart(e, field.id)}
-            >
-              <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
-              <span>
-                {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
-              </span>
+              
+              {/* Field element */}
+              <div
+                className={cn(
+                  "absolute flex items-center cursor-move px-2 py-1 rounded border border-transparent",
+                  activeField === field.id && "border-blue-500 shadow-lg",
+                  field.isPhoto ? "bg-blue-100/70" : "bg-white/50"
+                )}
+                style={{
+                  left: `${field.x}px`,
+                  top: `${field.y}px`,
+                  fontSize: `${field.fontSize}px`,
+                  fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
+                  fontFamily: field.fontFamily || "helvetica",
+                  color: field.color || "inherit",
+                  zIndex: activeField === field.id ? 10 : 1,
+                }}
+                onMouseDown={(e) => handleDragStart(e, field.id)}
+              >
+                <GripVertical className="h-3 w-3 mr-1 text-gray-400" />
+                <span>
+                  {field.isPhoto ? `[Photo: ${field.field}]` : `{${field.field}}`}
+                </span>
+              </div>
             </div>
           ))}
           
@@ -542,6 +576,42 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                 </div>
               ) : (
                 <>
+                  {/* Text Area Size Controls */}
+                  <div className="space-y-3 mb-4 p-2 bg-blue-50 rounded">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Maximize2 className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Text Area</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 block mb-1">Width</label>
+                        <Slider
+                          value={[field.textAreaWidth || 200]}
+                          min={50}
+                          max={cardDimensions.width - 20}
+                          step={5}
+                          onValueChange={(value) => setTextAreaSize("width", value[0], field.id)}
+                          className="flex-1"
+                        />
+                        <span className="text-xs block text-right mt-1">{field.textAreaWidth || 200}px</span>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs text-gray-600 block mb-1">Height</label>
+                        <Slider
+                          value={[field.textAreaHeight || 40]}
+                          min={20}
+                          max={200}
+                          step={5}
+                          onValueChange={(value) => setTextAreaSize("height", value[0], field.id)}
+                          className="flex-1"
+                        />
+                        <span className="text-xs block text-right mt-1">{field.textAreaHeight || 40}px</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3 mb-3">
                     <Type className="h-4 w-4 text-gray-500" />
                     <Slider

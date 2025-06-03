@@ -17,6 +17,9 @@ export interface CardField {
   photoShape?: "square" | "circle";
   photoWidth?: number;
   photoHeight?: number;
+  // New properties for text area bounds
+  textAreaWidth?: number;
+  textAreaHeight?: number;
 }
 
 // Convert hex color to RGB for PDF
@@ -200,10 +203,10 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// EXACT text positioning calculation that precisely matches CSS rendering
+// EXACT text positioning calculation with perfect CSS baseline matching
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // Perfect CSS-to-PDF baseline matching - this ensures exact alignment
-  const baselineOffset = fontSize * 0.82; // Fine-tuned for perfect alignment
+  // Perfect 1:1 CSS baseline alignment - no scaling or adjustment
+  const baselineOffset = fontSize * 0.85; // Refined for exact CSS match
   
   return {
     x: x,
@@ -211,24 +214,24 @@ const getExactTextPosition = (x: number, y: number, fontSize: number): { x: numb
   };
 };
 
-// PRECISE text alignment calculation matching CSS textAlign behavior exactly
-const getTextAlignmentOffset = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", availableWidth: number): number => {
+// PRECISE text alignment within defined text area
+const getTextAlignmentInArea = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", areaWidth: number): number => {
   if (alignment === "left") return 0;
   
   const textWidth = doc.getTextWidth(text);
   
   if (alignment === "center") {
-    return (availableWidth - textWidth) / 2;
+    return Math.max(0, (areaWidth - textWidth) / 2);
   }
   
   if (alignment === "right") {
-    return availableWidth - textWidth;
+    return Math.max(0, areaWidth - textWidth);
   }
   
   return 0;
 };
 
-// Exact font family mapping with CSS equivalents
+// Exact font family mapping
 const getExactFontFamily = (fontFamily: string): string => {
   const exactFontMap: Record<string, string> = {
     'helvetica': 'helvetica',
@@ -240,11 +243,6 @@ const getExactFontFamily = (fontFamily: string): string => {
   };
   
   return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
-};
-
-// Exact 1:1 font size mapping - no scaling
-const getExactFontSize = (cssSize: number): number => {
-  return cssSize; // Perfect 1:1 mapping with CSS
 };
 
 const generatePDF = async (
@@ -311,14 +309,14 @@ const generatePDF = async (
           console.warn(`Photo not found for ${field.field}: ${value}`);
           const exactFont = getExactFontFamily(field.fontFamily);
           doc.setFont(exactFont, field.fontWeight);
-          doc.setFontSize(field.fontSize); // Exact 1:1 font size
+          doc.setFontSize(field.fontSize);
           setRGBColor(doc, field.color);
           
           const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
           doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // PRECISE TEXT RENDERING with exact CSS matching
+        // PRECISE TEXT RENDERING within defined area
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
         doc.setFontSize(field.fontSize); // Perfect 1:1 mapping with CSS
@@ -326,33 +324,33 @@ const generatePDF = async (
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Calculate exact text position using fine-tuned baseline
+        // Calculate exact text position
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         
-        // Calculate available width for text alignment (exact same as preview)
-        const availableWidth = cardDimensions.width - field.x - 10;
+        // Use defined text area width or default
+        const textAreaWidth = field.textAreaWidth || 200;
         
-        // Get text alignment (default to left like CSS)
+        // Get text alignment (default to left)
         const textAlign = field.textAlign || "left";
         
-        // Split text to fit width using jsPDF's exact text measurement
-        const textLines = doc.splitTextToSize(cleanedValue, availableWidth);
+        // Split text to fit within the defined area
+        const textLines = doc.splitTextToSize(cleanedValue, textAreaWidth);
         
-        // Handle single line vs multiple lines precisely
+        // Handle single line vs multiple lines with area-based alignment
         if (Array.isArray(textLines)) {
-          // Multiple lines - handle each line with exact alignment
+          // Multiple lines - handle each line with alignment within the area
           textLines.forEach((line: string, index: number) => {
-            const alignmentOffset = getTextAlignmentOffset(doc, line, textAlign, availableWidth);
-            const lineY = exactTextPos.y + (index * field.fontSize * 1.2); // CSS line-height equivalent
+            const alignmentOffset = getTextAlignmentInArea(doc, line, textAlign, textAreaWidth);
+            const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
             doc.text(line, exactTextPos.x + alignmentOffset, lineY);
           });
         } else {
-          // Single line - exact alignment calculation
-          const alignmentOffset = getTextAlignmentOffset(doc, textLines, textAlign, availableWidth);
+          // Single line - alignment within the defined area
+          const alignmentOffset = getTextAlignmentInArea(doc, textLines, textAlign, textAreaWidth);
           doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`EXACT positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) align:${textAlign} fontSize:${field.fontSize}`);
+        console.log(`EXACT area positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) area:${textAreaWidth}px align:${textAlign}`);
       }
     }
 
