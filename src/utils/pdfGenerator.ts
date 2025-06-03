@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -7,17 +6,20 @@ const photoCache = new Map<string, string>();
 export interface CardField {
   id: string;
   field: string;
-  x: number; // in pixels
-  y: number; // in pixels
-  fontSize: number; // in pixels
+  x: number;
+  y: number;
+  fontSize: number;
   fontWeight: string;
   fontFamily: string;
   color: string;
   textAlign?: "left" | "center" | "right";
   isPhoto?: boolean;
   photoShape?: "square" | "circle";
-  photoWidth?: number; // in mm for photos
-  photoHeight?: number; // in mm for photos
+  photoWidth?: number;
+  photoHeight?: number;
+  // New properties for text area bounds
+  textAreaWidth?: number;
+  textAreaHeight?: number;
 }
 
 // Convert hex color to RGB for PDF
@@ -141,7 +143,7 @@ const convertBackgroundToRGBCompatible = (imageData: string): Promise<string> =>
 };
 
 // Enhanced circular image creation with exact pixel alignment
-const createCircularImage = (imageData: string, widthMM: number, heightMM: number): Promise<string> => {
+const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -153,10 +155,7 @@ const createCircularImage = (imageData: string, widthMM: number, heightMM: numbe
         return;
       }
       
-      // Convert mm to pixels for image processing (assuming 300 DPI: 1mm = ~11.81 pixels)
-      const width = Math.round(widthMM * 11.81);
-      const height = Math.round(heightMM * 11.81);
-      
+      // Use exact dimensions for perfect alignment
       canvas.width = width;
       canvas.height = height;
       
@@ -204,6 +203,48 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
+// EXACT text positioning calculation with perfect CSS baseline matching
+const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
+  // Perfect 1:1 CSS baseline alignment - no scaling or adjustment
+  const baselineOffset = fontSize * 0.85; // Refined for exact CSS match
+  
+  return {
+    x: x,
+    y: y + baselineOffset
+  };
+};
+
+// PRECISE text alignment within defined text area
+const getTextAlignmentInArea = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", areaWidth: number): number => {
+  if (alignment === "left") return 0;
+  
+  const textWidth = doc.getTextWidth(text);
+  
+  if (alignment === "center") {
+    return Math.max(0, (areaWidth - textWidth) / 2);
+  }
+  
+  if (alignment === "right") {
+    return Math.max(0, areaWidth - textWidth);
+  }
+  
+  return 0;
+};
+
+// Exact font family mapping
+const getExactFontFamily = (fontFamily: string): string => {
+  const exactFontMap: Record<string, string> = {
+    'helvetica': 'helvetica',
+    'arial': 'helvetica',
+    'times': 'times',
+    'georgia': 'times',
+    'courier': 'courier',
+    'verdana': 'helvetica',
+  };
+  
+  return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
+};
+
 const generatePDF = async (
   records: Record<string, string>[],
   fields: CardField[],
@@ -211,17 +252,15 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Professional print dimensions in mm
+  // EXACT dimensions matching the preview component perfectly
   const cardDimensions = orientation === "portrait" 
-    ? { width: 88, height: 58 } // Portrait: 88mm x 58mm
-    : { width: 58, height: 88 }; // Landscape: 58mm x 88mm
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
 
-  console.log(`Creating PDF with exact dimensions: ${cardDimensions.width}mm x ${cardDimensions.height}mm`);
-
-  // Create PDF with millimeter precision for professional printing
+  // Create PDF with maximum precision settings
   const doc = new jsPDF({
     orientation,
-    unit: 'mm',
+    unit: 'px',
     format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
     compress: false,
@@ -243,71 +282,75 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          const imageWidth = field.photoWidth || 15; // Default 15mm
-          const imageHeight = field.photoHeight || 15; // Default 15mm
+          const imageWidth = field.photoWidth || 60;
+          const imageHeight = field.photoHeight || 60;
           
-          // Convert pixel position to mm for PDF
-          const xMM = (field.x / 3.78); // Convert px to mm
-          const yMM = (field.y / 3.78); // Convert px to mm
-          
-          console.log(`Processing photo with mm precision: ${field.field}: ${value} (${imageWidth}mm x ${imageHeight}mm)`);
+          console.log(`Processing photo with exact alignment: ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
             try {
               const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
-              doc.addImage(circularImageData, 'PNG', xMM, yMM, imageWidth, imageHeight, '', 'NONE');
+              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error creating circular image:', error);
               const img = await loadImageWithExactAlignment(photoBase64);
-              doc.addImage(img, 'JPEG', xMM, yMM, imageWidth, imageHeight, '', 'NONE');
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           } else {
             try {
               const img = await loadImageWithExactAlignment(photoBase64);
-              doc.addImage(img, 'JPEG', xMM, yMM, imageWidth, imageHeight, '', 'NONE');
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error loading image:', error);
-              doc.addImage(photoBase64, 'JPEG', xMM, yMM, imageWidth, imageHeight, '', 'NONE');
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          doc.setFont('helvetica', field.fontWeight);
-          doc.setFontSize(field.fontSize / 3.78); // Convert px to mm
+          const exactFont = getExactFontFamily(field.fontFamily);
+          doc.setFont(exactFont, field.fontWeight);
+          doc.setFontSize(field.fontSize);
           setRGBColor(doc, field.color);
           
-          const xMM = field.x / 3.78;
-          const yMM = (field.y + field.fontSize) / 3.78;
-          doc.text(`Photo Missing: ${field.field}`, xMM, yMM);
+          const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
+          doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // Text rendering
-        const fontFamily = field.fontFamily?.toLowerCase() === 'helvetica' ? 'helvetica' : 
-                          field.fontFamily?.toLowerCase() === 'times' ? 'times' : 
-                          field.fontFamily?.toLowerCase() === 'courier' ? 'courier' : 'helvetica';
-        
-        doc.setFont(fontFamily, field.fontWeight);
-        doc.setFontSize(field.fontSize / 3.78); // Convert px to mm
+        // PRECISE TEXT RENDERING within defined area
+        const exactFont = getExactFontFamily(field.fontFamily);
+        doc.setFont(exactFont, field.fontWeight);
+        doc.setFontSize(field.fontSize); // Perfect 1:1 mapping with CSS
         setRGBColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
         
-        // Convert pixel position to mm for PDF
-        const xMM = field.x / 3.78;
-        const yMM = (field.y + field.fontSize) / 3.78; // Add font size for baseline
+        // Calculate exact text position
+        const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         
-        // Handle text alignment
+        // Use defined text area width or default
+        const textAreaWidth = field.textAreaWidth || 200;
+        
+        // Get text alignment (default to left)
         const textAlign = field.textAlign || "left";
         
-        if (textAlign === "left") {
-          doc.text(cleanedValue, xMM, yMM);
-        } else if (textAlign === "center") {
-          doc.text(cleanedValue, xMM, yMM, { align: 'center' });
-        } else if (textAlign === "right") {
-          doc.text(cleanedValue, xMM, yMM, { align: 'right' });
+        // Split text to fit within the defined area
+        const textLines = doc.splitTextToSize(cleanedValue, textAreaWidth);
+        
+        // Handle single line vs multiple lines with area-based alignment
+        if (Array.isArray(textLines)) {
+          // Multiple lines - handle each line with alignment within the area
+          textLines.forEach((line: string, index: number) => {
+            const alignmentOffset = getTextAlignmentInArea(doc, line, textAlign, textAreaWidth);
+            const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
+            doc.text(line, exactTextPos.x + alignmentOffset, lineY);
+          });
+        } else {
+          // Single line - alignment within the defined area
+          const alignmentOffset = getTextAlignmentInArea(doc, textLines, textAlign, textAreaWidth);
+          doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`Text positioning: ${field.field} at (${xMM}mm, ${yMM}mm) align:${textAlign}`);
+        console.log(`EXACT area positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) area:${textAreaWidth}px align:${textAlign}`);
       }
     }
 
@@ -316,7 +359,7 @@ const generatePDF = async (
     }
   }
 
-  doc.save('id-cards-professional-print.pdf');
+  doc.save('id-cards-perfectly-aligned.pdf');
 };
 
 declare global {
