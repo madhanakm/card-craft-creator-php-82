@@ -277,10 +277,10 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Exact print dimensions: 88mm × 58mm at 300 DPI
+  // Exact print dimensions: 88mm × 38mm at 300 DPI
   const cardDimensionsMM = orientation === "portrait" 
-    ? { width: 88, height: 58 } 
-    : { width: 58, height: 88 };
+    ? { width: 38, height: 88 } 
+    : { width: 88, height: 38 };
   
   const cardDimensionsPoints = {
     width: mmToPoints(cardDimensionsMM.width),
@@ -396,7 +396,7 @@ const generatePDF = async (
   }
 
   // Save with print-ready filename
-  doc.save('id-cards-cmyk-300dpi-88x58mm.pdf');
+  doc.save('id-cards-cmyk-300dpi-38x88mm.pdf');
   
   console.log('CMYK PDF generated successfully for professional printing');
   console.log('Recommended workflow: Open in Photoshop or CorelDRAW, convert to CMYK color space if needed');
