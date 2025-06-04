@@ -49,10 +49,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
   const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
   
-  // Card dimensions - exact print size: 88mm × 38mm
+  // Card dimensions - exact print size: 88mm × 58mm
   const cardDimensions = orientation === "portrait" 
-    ? { width: 130, height: 300 } // Scaled for display (38mm × 88mm ratio)
-    : { width: 300, height: 130 };
+    ? { width: 300, height: 192 } // Scaled for display (88mm × 58mm ratio)
+    : { width: 192, height: 300 };
 
   const addAlignmentGuide = (type: 'horizontal' | 'vertical') => {
     const newGuide: AlignmentGuide = {
@@ -394,7 +394,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
       <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
         <h3 className="text-sm font-medium text-blue-800 mb-1">Print Specifications</h3>
         <p className="text-xs text-blue-600">
-          Card Size: {orientation === "portrait" ? "38mm × 88mm" : "88mm × 38mm"} • 
+          Card Size: {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"} • 
           300 DPI • CMYK Color Space • Professional Print Ready
         </p>
       </div>

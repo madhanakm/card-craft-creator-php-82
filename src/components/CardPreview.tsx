@@ -19,10 +19,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   photoFolder,
   selectedFiles
 }) => {
-  // Use exact same dimensions as CardDesigner - 88mm × 38mm ratio
+  // Use exact same dimensions as CardDesigner - 88mm × 58mm ratio
   const cardDimensions = orientation === "portrait" 
-    ? { width: 130, height: 300 } // Scaled for display (38mm × 88mm ratio)
-    : { width: 300, height: 130 };
+    ? { width: 300, height: 192 } // Scaled for display (88mm × 58mm ratio)
+    : { width: 192, height: 300 };
     
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
@@ -129,7 +129,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
     <div className="flex flex-col items-center">
       <div className="mb-2 p-2 bg-blue-50 rounded text-center">
         <p className="text-xs text-blue-600 font-medium">
-          Print Size: {orientation === "portrait" ? "38mm × 88mm" : "88mm × 38mm"}
+          Print Size: {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"}
         </p>
         <p className="text-xs text-blue-500">300 DPI • CMYK Ready</p>
       </div>
