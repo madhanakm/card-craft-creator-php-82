@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -274,8 +273,7 @@ const generatePDF = async (
     title: 'ID Cards - CMYK Optimized',
     subject: 'Professional ID Cards for High-Quality Printing',
     creator: 'ID Card Generator',
-    keywords: 'CMYK, printing, professional, id cards',
-    colorSpace: 'CMYK'
+    keywords: 'CMYK, printing, professional, id cards'
   });
 
   const backgroundCMYK = backgroundImage ? await convertBackgroundToCMYKCompatible(backgroundImage) : null;
