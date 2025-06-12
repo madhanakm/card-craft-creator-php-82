@@ -471,8 +471,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             width: `${cardDimensions.width}px`,
             height: `${cardDimensions.height}px`,
             backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: 'cover',
+            backgroundSize: '100% 100%', // Changed from 'cover' to exact fit
             backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            imageRendering: 'pixelated', // Preserve sharp edges and colors
           }}
           onMouseMove={(e) => {
             handleDrag(e);

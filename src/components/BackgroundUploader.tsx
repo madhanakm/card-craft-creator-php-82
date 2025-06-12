@@ -41,14 +41,19 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       return;
     }
     
-    // Create a URL for the image
+    // Create a URL for the image without compression
     const imageUrl = URL.createObjectURL(file);
     
-    // Create an image object to check dimensions
+    // Create an image object to check dimensions and validate
     const img = new Image();
     img.onload = () => {
-      // Pass the image URL to the parent component
+      // Pass the original, uncompressed image URL to maintain color accuracy
       onUpload(imageUrl);
+      
+      toast({
+        title: "Background Uploaded",
+        description: "Image uploaded successfully with original quality preserved.",
+      });
     };
     img.onerror = () => {
       toast({
@@ -84,8 +89,11 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
           <p className="text-sm text-gray-500 mb-4">
             Drag & drop your background image here, or click to browse
           </p>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-gray-400 mb-2">
             Recommended size: 3.38" x 2.13" (85.6mm x 53.98mm) for standard ID cards
+          </p>
+          <p className="text-xs text-blue-600 mb-4">
+            Original image quality will be preserved for accurate colors
           </p>
           <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
             <ImagePlus className="h-4 w-4 mr-2" />

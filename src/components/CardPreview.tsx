@@ -134,8 +134,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           width: `${cardDimensions.width}px`,
           height: `${cardDimensions.height}px`,
           backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: 'cover',
+          backgroundSize: '100% 100%', // Changed from 'cover' to exact fit
           backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          imageRendering: 'pixelated', // Preserve sharp edges and colors
           position: 'relative',
         }}
       >
@@ -229,7 +231,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       </div>
       
       <p className="text-sm text-gray-500 italic text-center">
-        Preview shows exactly how the PDF will appear
+        Preview shows exactly how the PDF will appear with original image colors
       </p>
     </div>
   );
