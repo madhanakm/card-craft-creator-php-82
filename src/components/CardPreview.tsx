@@ -1,3 +1,4 @@
+
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import { useState, useEffect } from "react";
@@ -19,10 +20,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
   photoFolder,
   selectedFiles
 }) => {
-  // Use exact same dimensions as CardDesigner - 88mm × 58mm ratio
+  // Use exact same dimensions as CardDesigner and PDF
   const cardDimensions = orientation === "portrait" 
-    ? { width: 300, height: 192 } // Scaled for display (88mm × 58mm ratio)
-    : { width: 192, height: 300 };
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
     
   // State to track loaded photos
   const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
@@ -127,13 +128,6 @@ const CardPreview: React.FC<CardPreviewProps> = ({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="mb-2 p-2 bg-blue-50 rounded text-center">
-        <p className="text-xs text-blue-600 font-medium">
-          Print Size: {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"}
-        </p>
-        <p className="text-xs text-blue-500">300 DPI • CMYK Ready</p>
-      </div>
-      
       <div
         className="rounded-lg overflow-hidden shadow-lg mb-4"
         style={{
@@ -152,10 +146,6 @@ const CardPreview: React.FC<CardPreviewProps> = ({
             const cacheKey = `file:${photoFilename}`;
             const photoSrc = loadedPhotos[cacheKey];
             
-            // Convert photo dimensions from mm to display pixels (approximate scaling)
-            const displayWidth = (field.photoWidth || 15) * 3.4; // Approximate mm to px conversion for preview
-            const displayHeight = (field.photoHeight || 15) * 3.4;
-            
             // Show a placeholder if photo not loaded yet
             if (!photoSrc) {
               return (
@@ -168,8 +158,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                   style={{
                     left: `${field.x}px`,
                     top: `${field.y}px`,
-                    width: `${displayWidth}px`,
-                    height: `${displayHeight}px`,
+                    width: `${field.photoWidth || 60}px`,
+                    height: `${field.photoHeight || 60}px`,
                   }}
                 >
                   <span className="text-xs text-gray-500 text-center px-1">
@@ -189,8 +179,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 style={{
                   left: `${field.x}px`,
                   top: `${field.y}px`,
-                  width: `${displayWidth}px`,
-                  height: `${displayHeight}px`,
+                  width: `${field.photoWidth || 60}px`,
+                  height: `${field.photoHeight || 60}px`,
                 }}
               >
                 <img 
@@ -237,7 +227,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
       </div>
       
       <p className="text-sm text-gray-500 italic text-center">
-        Preview shows exactly how the CMYK PDF will appear for professional printing
+        Preview shows exactly how the PDF will appear
       </p>
     </div>
   );

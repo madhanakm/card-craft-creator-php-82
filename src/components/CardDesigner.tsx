@@ -49,10 +49,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
   const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
   
-  // Card dimensions - exact print size: 88mm × 58mm
+  // Card dimensions - same as preview and PDF
   const cardDimensions = orientation === "portrait" 
-    ? { width: 300, height: 192 } // Scaled for display (88mm × 58mm ratio)
-    : { width: 192, height: 300 };
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
 
   const addAlignmentGuide = (type: 'horizontal' | 'vertical') => {
     const newGuide: AlignmentGuide = {
@@ -390,15 +390,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
   return (
     <div className="flex flex-col">
-      {/* Print dimensions info */}
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="text-sm font-medium text-blue-800 mb-1">Print Specifications</h3>
-        <p className="text-xs text-blue-600">
-          Card Size: {orientation === "portrait" ? "88mm × 58mm" : "58mm × 88mm"} • 
-          300 DPI • CMYK Color Space • Professional Print Ready
-        </p>
-      </div>
-
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded-lg">
         <Toggle pressed={showGrid} onPressedChange={setShowGrid} size="sm">
@@ -627,9 +618,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
               
               {field.isPhoto ? (
                 <div className="space-y-3">
-                  <p className="text-xs text-blue-600 mb-2 bg-blue-50 p-2 rounded">
-                    Photo dimensions in millimeters (mm) for professional printing
-                  </p>
+                  <p className="text-xs text-gray-500 mb-2">Photo Field Settings</p>
                   
                   <div className="flex space-x-2">
                     <Button
@@ -652,29 +641,29 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Width (mm)</label>
+                      <label className="text-xs text-gray-500 block mb-1">Width</label>
                       <Slider
-                        value={[field.photoWidth || 15]}
-                        min={5}
-                        max={40}
-                        step={1}
+                        value={[field.photoWidth || 60]}
+                        min={30}
+                        max={150}
+                        step={5}
                         onValueChange={(value) => setPhotoSize("width", value[0], field.id)}
                         className="flex-1"
                       />
-                      <span className="text-xs block text-right mt-1">{field.photoWidth || 15}mm</span>
+                      <span className="text-xs block text-right mt-1">{field.photoWidth || 60}px</span>
                     </div>
                     
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Height (mm)</label>
+                      <label className="text-xs text-gray-500 block mb-1">Height</label>
                       <Slider
-                        value={[field.photoHeight || 15]}
-                        min={5}
-                        max={40}
-                        step={1}
+                        value={[field.photoHeight || 60]}
+                        min={30}
+                        max={150}
+                        step={5}
                         onValueChange={(value) => setPhotoSize("height", value[0], field.id)}
                         className="flex-1"
                       />
-                      <span className="text-xs block text-right mt-1">{field.photoHeight || 15}mm</span>
+                      <span className="text-xs block text-right mt-1">{field.photoHeight || 60}px</span>
                     </div>
                   </div>
                 </div>

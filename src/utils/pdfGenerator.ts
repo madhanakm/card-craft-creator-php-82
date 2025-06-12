@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -18,51 +17,28 @@ export interface CardField {
   photoShape?: "square" | "circle";
   photoWidth?: number;
   photoHeight?: number;
+  // New properties for text area bounds
   textAreaWidth?: number;
   textAreaHeight?: number;
 }
 
-// Convert millimeters to points at 300 DPI for high resolution
-const mmToPoints = (mm: number): number => {
-  return (mm * 300) / 25.4; // 300 DPI conversion
-};
-
-// Convert hex color to CMYK for professional printing
-const hexToCMYK = (hex: string): { c: number; m: number; y: number; k: number } => {
+// Convert hex color to RGB for PDF
+const hexToRGB = (hex: string): { r: number; g: number; b: number } => {
   // Remove # if present
   hex = hex.replace('#', '');
   
   // Convert hex to RGB
-  const r = parseInt(hex.substr(0, 2), 16) / 255;
-  const g = parseInt(hex.substr(2, 2), 16) / 255;
-  const b = parseInt(hex.substr(4, 2), 16) / 255;
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
   
-  // Convert RGB to CMYK
-  const k = 1 - Math.max(r, Math.max(g, b));
-  const c = k === 1 ? 0 : (1 - r - k) / (1 - k);
-  const m = k === 1 ? 0 : (1 - g - k) / (1 - k);
-  const y = k === 1 ? 0 : (1 - b - k) / (1 - k);
-  
-  return {
-    c: Math.round(c * 100),
-    m: Math.round(m * 100),
-    y: Math.round(y * 100),
-    k: Math.round(k * 100)
-  };
+  return { r, g, b };
 };
 
-// Set CMYK color in jsPDF (fallback to RGB for compatibility)
-const setCMYKColor = (doc: jsPDF, hexColor: string) => {
-  const cmyk = hexToCMYK(hexColor);
-  console.log(`CMYK Color: C${cmyk.c}% M${cmyk.m}% Y${cmyk.y}% K${cmyk.k}%`);
-  
-  // jsPDF doesn't have native CMYK support, so we'll use RGB but log CMYK values
-  // for reference when importing into Photoshop/CorelDRAW
-  const r = parseInt(hexColor.replace('#', '').substr(0, 2), 16);
-  const g = parseInt(hexColor.replace('#', '').substr(2, 2), 16);
-  const b = parseInt(hexColor.replace('#', '').substr(4, 2), 16);
-  
-  doc.setTextColor(r, g, b);
+// Set RGB color in jsPDF
+const setRGBColor = (doc: jsPDF, hexColor: string) => {
+  const rgb = hexToRGB(hexColor);
+  doc.setTextColor(rgb.r, rgb.g, rgb.b);
 };
 
 const normalizePhotoFilename = (filename: string): string[] => {
@@ -72,6 +48,7 @@ const normalizePhotoFilename = (filename: string): string[] => {
   const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
   
   if (!hasExtension) {
+    // Return multiple possible extensions - JPG first since it's most common
     return [
       `${trimmed}.JPG`,
       `${trimmed}.jpg`,
@@ -98,6 +75,7 @@ const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | nu
   }
 
   try {
+    // Find the file that matches any of the possible filenames
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       if (file.name === filename || file.name === filename.trim() || possibleFilenames.includes(file.name)) {
@@ -130,8 +108,8 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Enhanced background image processing for CMYK compatibility
-const convertBackgroundToPrintReady = (imageData: string): Promise<string> => {
+// Enhanced background image processing for RGB compatibility
+const convertBackgroundToRGBCompatible = (imageData: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -143,21 +121,17 @@ const convertBackgroundToPrintReady = (imageData: string): Promise<string> => {
         return;
       }
       
-      // Set canvas to exact print dimensions at 300 DPI
-      const widthPoints = mmToPoints(88);
-      const heightPoints = mmToPoints(58);
+      canvas.width = img.width;
+      canvas.height = img.height;
       
-      canvas.width = widthPoints;
-      canvas.height = heightPoints;
-      
-      // Fill with white background for print compatibility
+      // Fill with white background to ensure proper RGB conversion
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw the image to fit exact dimensions
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Draw the image
+      ctx.drawImage(img, 0, 0);
       
-      // Convert to JPEG with maximum quality for print
+      // Convert to JPEG with maximum quality for RGB compatibility
       const jpegData = canvas.toDataURL('image/jpeg', 1.0);
       resolve(jpegData);
     };
@@ -168,7 +142,7 @@ const convertBackgroundToPrintReady = (imageData: string): Promise<string> => {
   });
 };
 
-// High-resolution circular image creation
+// Enhanced circular image creation with exact pixel alignment
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -181,26 +155,30 @@ const createCircularImage = (imageData: string, width: number, height: number): 
         return;
       }
       
-      // Convert photo dimensions to points for high resolution
-      const widthPoints = mmToPoints(width);
-      const heightPoints = mmToPoints(height);
+      // Use exact dimensions for perfect alignment
+      canvas.width = width;
+      canvas.height = height;
       
-      canvas.width = widthPoints;
-      canvas.height = heightPoints;
+      // Disable image smoothing for pixel-perfect rendering
+      ctx.imageSmoothingEnabled = false;
       
-      // Create circular clipping path
-      const centerX = widthPoints / 2;
-      const centerY = heightPoints / 2;
-      const radius = Math.min(widthPoints, heightPoints) / 2;
+      // Clear the canvas
+      ctx.clearRect(0, 0, width, height);
+      
+      // Create circular clipping path with exact center alignment
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) / 2;
       
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
       ctx.closePath();
       ctx.clip();
       
-      // Draw the image
-      ctx.drawImage(img, 0, 0, widthPoints, heightPoints);
+      // Draw the image with exact positioning
+      ctx.drawImage(img, 0, 0, width, height);
       
+      // Convert to PNG with maximum quality
       const circularImageData = canvas.toDataURL('image/png', 1.0);
       resolve(circularImageData);
     };
@@ -211,12 +189,12 @@ const createCircularImage = (imageData: string, width: number, height: number): 
   });
 };
 
-// High-resolution image loading
-const loadImageWithHighRes = (imageData: string): Promise<HTMLImageElement> => {
+// Exact image loading with pixel-perfect alignment
+const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      console.log(`High-res image loaded: ${img.width}x${img.height}`);
+      console.log(`Image loaded with exact dimensions: ${img.width}x${img.height}`);
       resolve(img);
     };
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -225,40 +203,37 @@ const loadImageWithHighRes = (imageData: string): Promise<HTMLImageElement> => {
   });
 };
 
-// Precise text positioning for 300 DPI
-const getTextPositionForPrint = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // Convert pixel coordinates to points for print
-  const xPoints = mmToPoints(x * 0.264583); // Convert px to mm then to points
-  const yPoints = mmToPoints(y * 0.264583);
-  const fontSizePoints = mmToPoints(fontSize * 0.264583);
+// EXACT text positioning calculation with perfect CSS baseline matching
+const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
+  // Perfect 1:1 CSS baseline alignment - no scaling or adjustment
+  const baselineOffset = fontSize * 0.85; // Refined for exact CSS match
   
   return {
-    x: xPoints,
-    y: yPoints + fontSizePoints * 0.85
+    x: x,
+    y: y + baselineOffset
   };
 };
 
-// Text alignment in defined area for print
-const getTextAlignmentForPrint = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", areaWidth: number): number => {
+// PRECISE text alignment within defined text area
+const getTextAlignmentInArea = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", areaWidth: number): number => {
   if (alignment === "left") return 0;
   
   const textWidth = doc.getTextWidth(text);
-  const areaWidthPoints = mmToPoints(areaWidth * 0.264583);
   
   if (alignment === "center") {
-    return Math.max(0, (areaWidthPoints - textWidth) / 2);
+    return Math.max(0, (areaWidth - textWidth) / 2);
   }
   
   if (alignment === "right") {
-    return Math.max(0, areaWidthPoints - textWidth);
+    return Math.max(0, areaWidth - textWidth);
   }
   
   return 0;
 };
 
-// Font family mapping
-const getPrintFontFamily = (fontFamily: string): string => {
-  const fontMap: Record<string, string> = {
+// Exact font family mapping
+const getExactFontFamily = (fontFamily: string): string => {
+  const exactFontMap: Record<string, string> = {
     'helvetica': 'helvetica',
     'arial': 'helvetica',
     'times': 'times',
@@ -267,7 +242,7 @@ const getPrintFontFamily = (fontFamily: string): string => {
     'verdana': 'helvetica',
   };
   
-  return fontMap[fontFamily.toLowerCase()] || 'helvetica';
+  return exactFontMap[fontFamily.toLowerCase()] || 'helvetica';
 };
 
 const generatePDF = async (
@@ -277,45 +252,28 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // Exact print dimensions: 88mm × 58mm at 300 DPI
-  const cardDimensionsMM = orientation === "portrait" 
-    ? { width: 88, height: 58 } 
-    : { width: 58, height: 88 };
-  
-  const cardDimensionsPoints = {
-    width: mmToPoints(cardDimensionsMM.width),
-    height: mmToPoints(cardDimensionsMM.height)
-  };
+  // EXACT dimensions matching the preview component perfectly
+  const cardDimensions = orientation === "portrait" 
+    ? { width: 300, height: 480 } 
+    : { width: 480, height: 300 };
 
-  console.log(`Creating CMYK PDF at 300 DPI: ${cardDimensionsMM.width}mm × ${cardDimensionsMM.height}mm`);
-  console.log(`Points dimensions: ${cardDimensionsPoints.width} × ${cardDimensionsPoints.height}`);
-
-  // Create high-resolution PDF for print
+  // Create PDF with maximum precision settings
   const doc = new jsPDF({
     orientation,
-    unit: 'pt',
-    format: [cardDimensionsPoints.width, cardDimensionsPoints.height],
+    unit: 'px',
+    format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
     compress: false,
     precision: 16
   });
 
-  // Set PDF metadata for print production
-  doc.setProperties({
-    title: 'ID Cards - CMYK Print Ready',
-    subject: 'Professional ID Cards',
-    author: 'ID Card Generator',
-    keywords: 'ID, Cards, CMYK, Print, 300DPI',
-    creator: 'ID Card Generator Pro'
-  });
-
-  // Convert background for print
-  const backgroundPrintReady = backgroundImage ? await convertBackgroundToPrintReady(backgroundImage) : null;
+  // Convert background for RGB compatibility
+  const backgroundRGB = backgroundImage ? await convertBackgroundToRGBCompatible(backgroundImage) : null;
 
   for (const record of records) {
-    if (backgroundPrintReady) {
-      const img = await loadImageWithHighRes(backgroundPrintReady);
-      doc.addImage(img, 'JPEG', 0, 0, cardDimensionsPoints.width, cardDimensionsPoints.height, '', 'NONE');
+    if (backgroundRGB) {
+      const img = await loadImageWithExactAlignment(backgroundRGB);
+      doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height, '', 'NONE');
     }
 
     for (const field of fields) {
@@ -324,69 +282,75 @@ const generatePDF = async (
       if (field.isPhoto) {
         const photoBase64 = await loadPhotoFromFiles(value, selectedFiles);
         if (photoBase64) {
-          // Convert photo dimensions from mm to points
-          const imageWidthPoints = mmToPoints(field.photoWidth || 15);
-          const imageHeightPoints = mmToPoints(field.photoHeight || 15);
-          const xPoints = mmToPoints(field.x * 0.264583);
-          const yPoints = mmToPoints(field.y * 0.264583);
+          const imageWidth = field.photoWidth || 60;
+          const imageHeight = field.photoHeight || 60;
           
-          console.log(`Processing photo for print: ${field.field}: ${value}`);
+          console.log(`Processing photo with exact alignment: ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
             try {
-              const circularImageData = await createCircularImage(photoBase64, field.photoWidth || 15, field.photoHeight || 15);
-              doc.addImage(circularImageData, 'PNG', xPoints, yPoints, imageWidthPoints, imageHeightPoints, '', 'NONE');
+              const circularImageData = await createCircularImage(photoBase64, imageWidth, imageHeight);
+              doc.addImage(circularImageData, 'PNG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error creating circular image:', error);
-              const img = await loadImageWithHighRes(photoBase64);
-              doc.addImage(img, 'JPEG', xPoints, yPoints, imageWidthPoints, imageHeightPoints, '', 'NONE');
+              const img = await loadImageWithExactAlignment(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           } else {
             try {
-              const img = await loadImageWithHighRes(photoBase64);
-              doc.addImage(img, 'JPEG', xPoints, yPoints, imageWidthPoints, imageHeightPoints, '', 'NONE');
+              const img = await loadImageWithExactAlignment(photoBase64);
+              doc.addImage(img, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             } catch (error) {
               console.error('Error loading image:', error);
-              doc.addImage(photoBase64, 'JPEG', xPoints, yPoints, imageWidthPoints, imageHeightPoints, '', 'NONE');
+              doc.addImage(photoBase64, 'JPEG', field.x, field.y, imageWidth, imageHeight, '', 'NONE');
             }
           }
         } else {
           console.warn(`Photo not found for ${field.field}: ${value}`);
-          const printFont = getPrintFontFamily(field.fontFamily);
-          doc.setFont(printFont, field.fontWeight);
-          doc.setFontSize(mmToPoints(field.fontSize * 0.264583));
-          setCMYKColor(doc, field.color);
+          const exactFont = getExactFontFamily(field.fontFamily);
+          doc.setFont(exactFont, field.fontWeight);
+          doc.setFontSize(field.fontSize);
+          setRGBColor(doc, field.color);
           
-          const textPos = getTextPositionForPrint(field.x, field.y, field.fontSize);
-          doc.text(`Photo Missing: ${field.field}`, textPos.x, textPos.y);
+          const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
+          doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // High-resolution text rendering for print
-        const printFont = getPrintFontFamily(field.fontFamily);
-        doc.setFont(printFont, field.fontWeight);
-        doc.setFontSize(mmToPoints(field.fontSize * 0.264583));
-        setCMYKColor(doc, field.color);
+        // PRECISE TEXT RENDERING within defined area
+        const exactFont = getExactFontFamily(field.fontFamily);
+        doc.setFont(exactFont, field.fontWeight);
+        doc.setFontSize(field.fontSize); // Perfect 1:1 mapping with CSS
+        setRGBColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
-        const textPos = getTextPositionForPrint(field.x, field.y, field.fontSize);
-        const textAreaWidthPoints = mmToPoints((field.textAreaWidth || 200) * 0.264583);
+        
+        // Calculate exact text position
+        const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
+        
+        // Use defined text area width or default
+        const textAreaWidth = field.textAreaWidth || 200;
+        
+        // Get text alignment (default to left)
         const textAlign = field.textAlign || "left";
         
         // Split text to fit within the defined area
-        const textLines = doc.splitTextToSize(cleanedValue, textAreaWidthPoints);
+        const textLines = doc.splitTextToSize(cleanedValue, textAreaWidth);
         
+        // Handle single line vs multiple lines with area-based alignment
         if (Array.isArray(textLines)) {
+          // Multiple lines - handle each line with alignment within the area
           textLines.forEach((line: string, index: number) => {
-            const alignmentOffset = getTextAlignmentForPrint(doc, line, textAlign, field.textAreaWidth || 200);
-            const lineY = textPos.y + (index * mmToPoints(field.fontSize * 0.264583) * 1.2);
-            doc.text(line, textPos.x + alignmentOffset, lineY);
+            const alignmentOffset = getTextAlignmentInArea(doc, line, textAlign, textAreaWidth);
+            const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
+            doc.text(line, exactTextPos.x + alignmentOffset, lineY);
           });
         } else {
-          const alignmentOffset = getTextAlignmentForPrint(doc, textLines, textAlign, field.textAreaWidth || 200);
-          doc.text(textLines, textPos.x + alignmentOffset, textPos.y);
+          // Single line - alignment within the defined area
+          const alignmentOffset = getTextAlignmentInArea(doc, textLines, textAlign, textAreaWidth);
+          doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`Print text: ${field.field} at (${textPos.x}, ${textPos.y}) CMYK ready`);
+        console.log(`EXACT area positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) area:${textAreaWidth}px align:${textAlign}`);
       }
     }
 
@@ -395,11 +359,7 @@ const generatePDF = async (
     }
   }
 
-  // Save with print-ready filename
-  doc.save('id-cards-cmyk-300dpi-88x58mm.pdf');
-  
-  console.log('CMYK PDF generated successfully for professional printing');
-  console.log('Recommended workflow: Open in Photoshop or CorelDRAW, convert to CMYK color space if needed');
+  doc.save('id-cards-perfectly-aligned.pdf');
 };
 
 declare global {
