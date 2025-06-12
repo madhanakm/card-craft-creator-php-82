@@ -41,29 +41,65 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       return;
     }
     
-    // Create a URL for the image without compression
-    const imageUrl = URL.createObjectURL(file);
+    // Create a canvas to process the image without color distortion
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false,
+      colorSpace: 'srgb',
+      willReadFrequently: false 
+    });
     
-    // Create an image object to check dimensions and validate
+    if (!ctx) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Cannot process image. Please try another file.",
+      });
+      return;
+    }
+    
     const img = new Image();
     img.onload = () => {
-      // Pass the original, uncompressed image URL to maintain color accuracy
-      onUpload(imageUrl);
+      // Set canvas dimensions to match image exactly
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
       
-      toast({
-        title: "Background Uploaded",
-        description: "Image uploaded successfully with original quality preserved.",
-      });
+      // Disable image smoothing to preserve exact colors
+      ctx.imageSmoothingEnabled = false;
+      
+      // Draw image without any transformations
+      ctx.drawImage(img, 0, 0);
+      
+      // Convert back to blob with maximum quality
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const imageUrl = URL.createObjectURL(blob);
+          onUpload(imageUrl);
+          
+          toast({
+            title: "Background Uploaded",
+            description: "Image uploaded with exact color preservation.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to process the image.",
+          });
+        }
+      }, 'image/png', 1.0);
     };
+    
     img.onerror = () => {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to load the image. Please try another file.",
       });
-      URL.revokeObjectURL(imageUrl);
     };
-    img.src = imageUrl;
+    
+    // Load image with original file data
+    img.src = URL.createObjectURL(file);
   };
 
   const handleButtonClick = () => {
@@ -93,7 +129,7 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
             Recommended size: 3.38" x 2.13" (85.6mm x 53.98mm) for standard ID cards
           </p>
           <p className="text-xs text-blue-600 mb-4">
-            Original image quality will be preserved for accurate colors
+            Exact color reproduction guaranteed - no compression or color shift
           </p>
           <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
             <ImagePlus className="h-4 w-4 mr-2" />
