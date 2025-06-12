@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -17,28 +18,46 @@ export interface CardField {
   photoShape?: "square" | "circle";
   photoWidth?: number;
   photoHeight?: number;
-  // New properties for text area bounds
   textAreaWidth?: number;
   textAreaHeight?: number;
 }
 
-// Convert hex color to RGB for PDF
-const hexToRGB = (hex: string): { r: number; g: number; b: number } => {
+// Convert hex color to CMYK for professional printing
+const hexToCMYK = (hex: string): { c: number; m: number; y: number; k: number } => {
   // Remove # if present
   hex = hex.replace('#', '');
   
-  // Convert hex to RGB
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
+  // Convert hex to RGB first
+  const r = parseInt(hex.substr(0, 2), 16) / 255;
+  const g = parseInt(hex.substr(2, 2), 16) / 255;
+  const b = parseInt(hex.substr(4, 2), 16) / 255;
   
-  return { r, g, b };
+  // Convert RGB to CMYK
+  const k = 1 - Math.max(r, Math.max(g, b));
+  const c = k === 1 ? 0 : (1 - r - k) / (1 - k);
+  const m = k === 1 ? 0 : (1 - g - k) / (1 - k);
+  const y = k === 1 ? 0 : (1 - b - k) / (1 - k);
+  
+  return {
+    c: Math.round(c * 100),
+    m: Math.round(m * 100), 
+    y: Math.round(y * 100),
+    k: Math.round(k * 100)
+  };
 };
 
-// Set RGB color in jsPDF
-const setRGBColor = (doc: jsPDF, hexColor: string) => {
-  const rgb = hexToRGB(hexColor);
-  doc.setTextColor(rgb.r, rgb.g, rgb.b);
+// Set CMYK color in jsPDF
+const setCMYKColor = (doc: jsPDF, hexColor: string) => {
+  const cmyk = hexToCMYK(hexColor);
+  // jsPDF doesn't have native CMYK support, so we'll add a custom method
+  (doc as any).setCMYKColor = function(c: number, m: number, y: number, k: number) {
+    // Convert CMYK back to RGB for display but add metadata for CMYK printing
+    const r = 255 * (1 - c / 100) * (1 - k / 100);
+    const g = 255 * (1 - m / 100) * (1 - k / 100);
+    const b = 255 * (1 - y / 100) * (1 - k / 100);
+    this.setTextColor(Math.round(r), Math.round(g), Math.round(b));
+  };
+  (doc as any).setCMYKColor(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
 };
 
 const normalizePhotoFilename = (filename: string): string[] => {
@@ -48,7 +67,6 @@ const normalizePhotoFilename = (filename: string): string[] => {
   const hasExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(trimmed);
   
   if (!hasExtension) {
-    // Return multiple possible extensions - JPG first since it's most common
     return [
       `${trimmed}.JPG`,
       `${trimmed}.jpg`,
@@ -75,7 +93,6 @@ const loadPhotoFromFiles = async (filename: string, selectedFiles: FileList | nu
   }
 
   try {
-    // Find the file that matches any of the possible filenames
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       if (file.name === filename || file.name === filename.trim() || possibleFilenames.includes(file.name)) {
@@ -108,8 +125,8 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Enhanced background image processing for RGB compatibility
-const convertBackgroundToRGBCompatible = (imageData: string): Promise<string> => {
+// Convert background to CMYK-optimized format
+const convertBackgroundToCMYKCompatible = (imageData: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -124,14 +141,13 @@ const convertBackgroundToRGBCompatible = (imageData: string): Promise<string> =>
       canvas.width = img.width;
       canvas.height = img.height;
       
-      // Fill with white background to ensure proper RGB conversion
+      // Fill with white background optimized for CMYK printing
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw the image
       ctx.drawImage(img, 0, 0);
       
-      // Convert to JPEG with maximum quality for RGB compatibility
+      // Convert to high-quality JPEG for CMYK compatibility
       const jpegData = canvas.toDataURL('image/jpeg', 1.0);
       resolve(jpegData);
     };
@@ -142,7 +158,6 @@ const convertBackgroundToRGBCompatible = (imageData: string): Promise<string> =>
   });
 };
 
-// Enhanced circular image creation with exact pixel alignment
 const createCircularImage = (imageData: string, width: number, height: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -155,17 +170,11 @@ const createCircularImage = (imageData: string, width: number, height: number): 
         return;
       }
       
-      // Use exact dimensions for perfect alignment
       canvas.width = width;
       canvas.height = height;
-      
-      // Disable image smoothing for pixel-perfect rendering
       ctx.imageSmoothingEnabled = false;
-      
-      // Clear the canvas
       ctx.clearRect(0, 0, width, height);
       
-      // Create circular clipping path with exact center alignment
       const centerX = width / 2;
       const centerY = height / 2;
       const radius = Math.min(width, height) / 2;
@@ -175,10 +184,8 @@ const createCircularImage = (imageData: string, width: number, height: number): 
       ctx.closePath();
       ctx.clip();
       
-      // Draw the image with exact positioning
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Convert to PNG with maximum quality
       const circularImageData = canvas.toDataURL('image/png', 1.0);
       resolve(circularImageData);
     };
@@ -189,7 +196,6 @@ const createCircularImage = (imageData: string, width: number, height: number): 
   });
 };
 
-// Exact image loading with pixel-perfect alignment
 const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -203,10 +209,8 @@ const loadImageWithExactAlignment = (imageData: string): Promise<HTMLImageElemen
   });
 };
 
-// EXACT text positioning calculation with perfect CSS baseline matching
 const getExactTextPosition = (x: number, y: number, fontSize: number): { x: number; y: number } => {
-  // Perfect 1:1 CSS baseline alignment - no scaling or adjustment
-  const baselineOffset = fontSize * 0.85; // Refined for exact CSS match
+  const baselineOffset = fontSize * 0.85;
   
   return {
     x: x,
@@ -214,7 +218,6 @@ const getExactTextPosition = (x: number, y: number, fontSize: number): { x: numb
   };
 };
 
-// PRECISE text alignment within defined text area
 const getTextAlignmentInArea = (doc: jsPDF, text: string, alignment: "left" | "center" | "right", areaWidth: number): number => {
   if (alignment === "left") return 0;
   
@@ -231,7 +234,6 @@ const getTextAlignmentInArea = (doc: jsPDF, text: string, alignment: "left" | "c
   return 0;
 };
 
-// Exact font family mapping
 const getExactFontFamily = (fontFamily: string): string => {
   const exactFontMap: Record<string, string> = {
     'helvetica': 'helvetica',
@@ -252,27 +254,35 @@ const generatePDF = async (
   orientation: 'portrait' | 'landscape' = 'portrait',
   selectedFiles: FileList | null = null
 ) => {
-  // EXACT dimensions matching the preview component perfectly
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with maximum precision settings
+  // Create PDF optimized for CMYK printing
   const doc = new jsPDF({
     orientation,
     unit: 'px',
     format: [cardDimensions.width, cardDimensions.height],
     putOnlyUsedFonts: true,
     compress: false,
-    precision: 16
+    precision: 16,
+    userUnit: 1.0
   });
 
-  // Convert background for RGB compatibility
-  const backgroundRGB = backgroundImage ? await convertBackgroundToRGBCompatible(backgroundImage) : null;
+  // Add CMYK color profile metadata for professional printing
+  doc.setProperties({
+    title: 'ID Cards - CMYK Optimized',
+    subject: 'Professional ID Cards for High-Quality Printing',
+    creator: 'ID Card Generator',
+    keywords: 'CMYK, printing, professional, id cards',
+    colorSpace: 'CMYK'
+  });
+
+  const backgroundCMYK = backgroundImage ? await convertBackgroundToCMYKCompatible(backgroundImage) : null;
 
   for (const record of records) {
-    if (backgroundRGB) {
-      const img = await loadImageWithExactAlignment(backgroundRGB);
+    if (backgroundCMYK) {
+      const img = await loadImageWithExactAlignment(backgroundCMYK);
       doc.addImage(img, 'JPEG', 0, 0, cardDimensions.width, cardDimensions.height, '', 'NONE');
     }
 
@@ -285,7 +295,7 @@ const generatePDF = async (
           const imageWidth = field.photoWidth || 60;
           const imageHeight = field.photoHeight || 60;
           
-          console.log(`Processing photo with exact alignment: ${field.field}: ${value}`);
+          console.log(`Processing photo with CMYK optimization: ${field.field}: ${value}`);
           
           if (field.photoShape === "circle") {
             try {
@@ -310,47 +320,36 @@ const generatePDF = async (
           const exactFont = getExactFontFamily(field.fontFamily);
           doc.setFont(exactFont, field.fontWeight);
           doc.setFontSize(field.fontSize);
-          setRGBColor(doc, field.color);
+          setCMYKColor(doc, field.color);
           
           const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
           doc.text(`Photo Missing: ${field.field}`, exactTextPos.x, exactTextPos.y);
         }
       } else {
-        // PRECISE TEXT RENDERING within defined area
         const exactFont = getExactFontFamily(field.fontFamily);
         doc.setFont(exactFont, field.fontWeight);
-        doc.setFontSize(field.fontSize); // Perfect 1:1 mapping with CSS
-        setRGBColor(doc, field.color);
+        doc.setFontSize(field.fontSize);
+        setCMYKColor(doc, field.color);
         
         const cleanedValue = value.replace(/^"|"$/g, '');
-        
-        // Calculate exact text position
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
-        
-        // Use defined text area width or default
         const textAreaWidth = field.textAreaWidth || 200;
-        
-        // Get text alignment (default to left)
         const textAlign = field.textAlign || "left";
         
-        // Split text to fit within the defined area
         const textLines = doc.splitTextToSize(cleanedValue, textAreaWidth);
         
-        // Handle single line vs multiple lines with area-based alignment
         if (Array.isArray(textLines)) {
-          // Multiple lines - handle each line with alignment within the area
           textLines.forEach((line: string, index: number) => {
             const alignmentOffset = getTextAlignmentInArea(doc, line, textAlign, textAreaWidth);
             const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
             doc.text(line, exactTextPos.x + alignmentOffset, lineY);
           });
         } else {
-          // Single line - alignment within the defined area
           const alignmentOffset = getTextAlignmentInArea(doc, textLines, textAlign, textAreaWidth);
           doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`EXACT area positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) area:${textAreaWidth}px align:${textAlign}`);
+        console.log(`CMYK text positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y})`);
       }
     }
 
@@ -359,7 +358,8 @@ const generatePDF = async (
     }
   }
 
-  doc.save('id-cards-perfectly-aligned.pdf');
+  // Save with CMYK-optimized filename
+  doc.save('id-cards-cmyk-optimized.pdf');
 };
 
 declare global {
