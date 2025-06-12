@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -13,6 +14,7 @@ export interface CardField {
   fontFamily: string;
   color: string;
   textAlign?: "left" | "center" | "right";
+  lineHeight?: number;
   isPhoto?: boolean;
   photoShape?: "square" | "circle";
   photoWidth?: number;
@@ -333,13 +335,14 @@ const generatePDF = async (
         const exactTextPos = getExactTextPosition(field.x, field.y, field.fontSize);
         const textAreaWidth = field.textAreaWidth || 200;
         const textAlign = field.textAlign || "left";
+        const lineHeight = field.lineHeight || 1.2;
         
         const textLines = doc.splitTextToSize(cleanedValue, textAreaWidth);
         
         if (Array.isArray(textLines)) {
           textLines.forEach((line: string, index: number) => {
             const alignmentOffset = getTextAlignmentInArea(doc, line, textAlign, textAreaWidth);
-            const lineY = exactTextPos.y + (index * field.fontSize * 1.2);
+            const lineY = exactTextPos.y + (index * field.fontSize * lineHeight);
             doc.text(line, exactTextPos.x + alignmentOffset, lineY);
           });
         } else {
@@ -347,7 +350,7 @@ const generatePDF = async (
           doc.text(textLines, exactTextPos.x + alignmentOffset, exactTextPos.y);
         }
         
-        console.log(`CMYK text positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y})`);
+        console.log(`CMYK text positioning: ${field.field} at (${exactTextPos.x}, ${exactTextPos.y}) with line height: ${lineHeight}`);
       }
     }
 

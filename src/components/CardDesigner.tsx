@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2 } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, RowSpacing } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -388,6 +388,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     return lines;
   };
 
+  const handleLineHeightChange = (lineHeight: number, fieldId: string) => {
+    const updatedFields = fields.map(field => {
+      if (field.id === fieldId) {
+        return { ...field, lineHeight };
+      }
+      return field;
+    });
+    
+    onFieldsUpdate(updatedFields);
+  };
+
   return (
     <div className="flex flex-col">
       {/* Toolbar */}
@@ -719,6 +730,20 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                       className="flex-1"
                     />
                     <span className="text-xs w-8 text-right">{field.fontSize}px</span>
+                  </div>
+
+                  {/* Line Height Control */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <RowSpacing className="h-4 w-4 text-gray-500" />
+                    <Slider
+                      value={[field.lineHeight || 1.2]}
+                      min={0.8}
+                      max={3.0}
+                      step={0.1}
+                      onValueChange={(value) => handleLineHeightChange(value[0], field.id)}
+                      className="flex-1"
+                    />
+                    <span className="text-xs w-8 text-right">{(field.lineHeight || 1.2).toFixed(1)}</span>
                   </div>
 
                   <div className="flex items-center gap-3 mb-3">

@@ -196,6 +196,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           const fieldValue = data[field.field] || '';
           const cleanedValue = fieldValue.replace(/^"|"$/g, '');
           const textAreaWidth = field.textAreaWidth || 200;
+          const lineHeight = field.lineHeight || 1.2;
           
           return (
             <div
@@ -211,6 +212,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({
                 fontFamily: field.fontFamily || "helvetica, sans-serif",
                 color: field.color || "inherit",
                 textAlign: field.textAlign || "left",
+                lineHeight: lineHeight,
                 overflow: 'hidden',
                 wordBreak: "break-word",
                 display: 'flex',
