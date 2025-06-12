@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, RowSpacing } from "lucide-react";
+import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, AlignJustify } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -734,7 +734,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 
                   {/* Line Height Control */}
                   <div className="flex items-center gap-3 mb-3">
-                    <RowSpacing className="h-4 w-4 text-gray-500" />
+                    <AlignJustify className="h-4 w-4 text-gray-500" />
                     <Slider
                       value={[field.lineHeight || 1.2]}
                       min={0.8}
