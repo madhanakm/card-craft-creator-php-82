@@ -133,10 +133,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           width: `${cardDimensions.width}px`,
           height: `${cardDimensions.height}px`,
           backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: `${cardDimensions.width}px ${cardDimensions.height}px`,
-          backgroundPosition: '0 0',
+          backgroundSize: '100% 100%',
+          backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          imageRendering: 'crisp-edges',
+          imageRendering: 'pixelated',
           position: 'relative',
         }}
       >

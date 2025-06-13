@@ -19,18 +19,18 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      validateAndProcessImage(file);
+      processImageFile(file);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      validateAndProcessImage(file);
+      processImageFile(file);
     }
   };
 
-  const validateAndProcessImage = (file: File) => {
+  const processImageFile = (file: File) => {
     // Check if the file is an image
     if (!file.type.startsWith('image/')) {
       toast({
@@ -41,69 +41,18 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       return;
     }
     
-    // Create a canvas to process the image without color distortion
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { 
-      alpha: false,
-      colorSpace: 'srgb',
-      willReadFrequently: false 
+    // Use the original file directly without any processing
+    // This preserves exact colors and quality
+    const imageUrl = URL.createObjectURL(file);
+    onUpload(imageUrl);
+    
+    toast({
+      title: "Background Uploaded",
+      description: "Image uploaded with exact color preservation.",
     });
-    
-    if (!ctx) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Cannot process image. Please try another file.",
-      });
-      return;
-    }
-    
-    const img = new Image();
-    img.onload = () => {
-      // Set canvas dimensions to match image exactly
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      
-      // Disable image smoothing to preserve exact colors
-      ctx.imageSmoothingEnabled = false;
-      
-      // Draw image without any transformations
-      ctx.drawImage(img, 0, 0);
-      
-      // Convert back to blob with maximum quality
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const imageUrl = URL.createObjectURL(blob);
-          onUpload(imageUrl);
-          
-          toast({
-            title: "Background Uploaded",
-            description: "Image uploaded with exact color preservation.",
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to process the image.",
-          });
-        }
-      }, 'image/png', 1.0);
-    };
-    
-    img.onerror = () => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load the image. Please try another file.",
-      });
-    };
-    
-    // Load image with original file data
-    img.src = URL.createObjectURL(file);
   };
 
   const handleButtonClick = () => {
-    // Trigger click on the hidden file input
     fileInputRef.current?.click();
   };
 
@@ -129,7 +78,7 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
             Recommended size: 3.38" x 2.13" (85.6mm x 53.98mm) for standard ID cards
           </p>
           <p className="text-xs text-blue-600 mb-4">
-            Exact color reproduction guaranteed - no compression or color shift
+            Exact color reproduction guaranteed - no processing or color changes
           </p>
           <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
             <ImagePlus className="h-4 w-4 mr-2" />
