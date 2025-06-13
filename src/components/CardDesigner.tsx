@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, AlignJustify } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -475,7 +476,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             backgroundPosition: '0 0',
             backgroundRepeat: 'no-repeat',
             imageRendering: 'crisp-edges',
-            colorSpace: 'srgb',
           }}
           onMouseMove={(e) => {
             handleDrag(e);

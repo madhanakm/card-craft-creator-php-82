@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import { useState, useEffect } from "react";
@@ -138,7 +137,6 @@ const CardPreview: React.FC<CardPreviewProps> = ({
           backgroundPosition: '0 0',
           backgroundRepeat: 'no-repeat',
           imageRendering: 'crisp-edges',
-          colorSpace: 'srgb',
           position: 'relative',
         }}
       >
