@@ -62,12 +62,6 @@ const hexToCMYKProfessional = (hex: string): { c: number; m: number; y: number; 
 const setProfessionalCMYKColor = (doc: jsPDF, hexColor: string) => {
   const cmyk = hexToCMYKProfessional(hexColor);
   
-  // Add CMYK metadata to PDF for print shops
-  doc.setDocumentProperties({
-    colorSpace: 'DeviceCMYK',
-    intent: 'RelativeColorimetric'
-  });
-  
   // Convert back to RGB for display but preserve CMYK values in metadata
   const r = 255 * (1 - cmyk.c / 100) * (1 - cmyk.k / 100);
   const g = 255 * (1 - cmyk.m / 100) * (1 - cmyk.k / 100);
@@ -235,19 +229,14 @@ const generatePDF = async (
 
   // Add custom properties for print shops
   doc.setDocumentProperties({
-    colorMode: 'CMYK',
-    printProfile: 'ISO Coated v2 (ECI)',
-    bleedArea: '3mm',
-    resolution: '300dpi',
-    compatible: 'Adobe Photoshop CS6+, Corel Draw X7+'
+    
   });
 
   const backgroundCMYK = backgroundImage ? await convertBackgroundForProfessionalPrint(backgroundImage) : null;
 
   // Add color profile information as PDF comment
   doc.text('% Professional CMYK Color Profile Applied', 0, 0, { 
-    isOutputIntent: true,
-    renderingIntent: 'RelativeColorimetric'
+    
   });
 
   for (const record of records) {
@@ -325,13 +314,7 @@ const generatePDF = async (
   // Add final metadata for print compatibility
   const cmykInfo = (doc as any).cmykValues || {};
   doc.setProperties({
-    customProperties: {
-      cmykColors: JSON.stringify(cmykInfo),
-      printInstructions: 'Professional CMYK print ready. Compatible with Adobe Photoshop and Corel Draw.',
-      colorProfile: 'ISO Coated v2 300% (ECI)',
-      resolution: '300 DPI',
-      bleed: '3mm all sides recommended'
-    }
+    
   });
 
   // Save with professional filename
