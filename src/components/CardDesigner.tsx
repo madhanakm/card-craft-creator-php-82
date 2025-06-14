@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import Draggable from "react-draggable";
 import { cn } from "@/lib/utils";
@@ -209,25 +208,38 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         </div>
       </div>
 
-      {/* Main Design Area - Improved Layout */}
+      {/* Main Design Area - Fixed Ruler Alignment */}
       <div className="flex gap-6">
-        {/* Canvas Section - Better Centered */}
+        {/* Canvas Section with Proper Ruler Positioning */}
         <div className="flex-1 bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex justify-center">
-            <div className="relative">
-              {/* Enhanced Rulers */}
+            {/* Canvas Container with Rulers - Properly Aligned */}
+            <div className="relative" style={{ paddingTop: '30px', paddingLeft: '30px' }}>
+              {/* Horizontal Ruler - Positioned exactly at canvas top */}
               <Ruler 
                 orientation="horizontal" 
                 length={cardDimensions.width} 
-                className="absolute -top-6 left-0 z-20 bg-white border border-gray-300 shadow-sm"
+                className="absolute bg-white border border-gray-300 shadow-sm z-20"
+                style={{
+                  top: '-30px',
+                  left: '0px',
+                  height: '30px'
+                }}
               />
+              
+              {/* Vertical Ruler - Positioned exactly at canvas left */}
               <Ruler 
                 orientation="vertical" 
                 length={cardDimensions.height} 
-                className="absolute -left-6 top-0 z-20 bg-white border border-gray-300 shadow-sm"
+                className="absolute bg-white border border-gray-300 shadow-sm z-20"
+                style={{
+                  left: '-30px',
+                  top: '0px',
+                  width: '30px'
+                }}
               />
               
-              {/* Canvas with improved styling and axis lines */}
+              {/* Canvas - Positioned at exact 0,0 relative to rulers */}
               <div
                 className="relative border-2 border-gray-400 overflow-visible shadow-lg"
                 style={{
@@ -282,14 +294,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                           />
                           {/* Center alignment guides */}
                           <div
-                            className="absolute top-0 w-px bg-green-500 opacity-50 pointer-events-none z-10"
+                            className="absolute top-0 w-px bg-green-500 opacity-30 pointer-events-none z-10"
                             style={{
                               left: `${cardDimensions.width / 2}px`,
                               height: `${cardDimensions.height}px`
                             }}
                           />
                           <div
-                            className="absolute left-0 h-px bg-green-500 opacity-50 pointer-events-none z-10"
+                            className="absolute left-0 h-px bg-green-500 opacity-30 pointer-events-none z-10"
                             style={{
                               top: `${cardDimensions.height / 2}px`,
                               width: `${cardDimensions.width}px`

@@ -5,9 +5,10 @@ interface RulerProps {
   orientation: 'horizontal' | 'vertical';
   length: number;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-const Ruler: React.FC<RulerProps> = ({ orientation, length, className = '' }) => {
+const Ruler: React.FC<RulerProps> = ({ orientation, length, className = '', style = {} }) => {
   const isHorizontal = orientation === 'horizontal';
   const tickCount = Math.floor(length / 10); // Major tick every 10 pixels
   
@@ -64,6 +65,7 @@ const Ruler: React.FC<RulerProps> = ({ orientation, length, className = '' }) =>
       style={{
         width: isHorizontal ? `${length}px` : '24px',
         height: isHorizontal ? '24px' : `${length}px`,
+        ...style
       }}
     >
       {ticks}
