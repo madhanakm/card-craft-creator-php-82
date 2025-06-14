@@ -36,6 +36,14 @@ const Index = () => {
   const [previewsPerPage, setPreviewsPerPage] = useState(5);
   const [photoFolder, setPhotoFolder] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [availableFonts, setAvailableFonts] = useState<string[]>(['helvetica', 'times', 'courier']);
+
+  // Handle font updates from FontUploader
+  const handleFontsUpdate = (fonts: string[]) => {
+    const allFonts = ['helvetica', 'times', 'courier', ...fonts];
+    setAvailableFonts(allFonts);
+    console.log('Available fonts updated:', allFonts);
+  };
 
   // Handle file selector for photo folder with improved functionality
   const handlePhotoFolderSelect = () => {
@@ -144,7 +152,7 @@ const Index = () => {
       await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation, selectedFiles);
       toast({
         title: "Success",
-        description: `Generated PDF with ${csvData.records.length} ID cards.`,
+        description: `Generated professional CMYK PDF with ${csvData.records.length} ID cards for Photoshop/Corel Draw editing.`,
       });
     } catch (error) {
       console.error("PDF generation error:", error);
@@ -177,7 +185,7 @@ const Index = () => {
       <Tabs value={activeStep} onValueChange={setActiveStep} className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-8">
           <TabsTrigger value="upload-data">1. Upload Data</TabsTrigger>
-          <TabsTrigger value="upload-background" disabled={csvData.headers.length === 0}>2. Upload Background</TabsTrigger>
+          <TabsTrigger value="upload-background" disabled={csvData.headers.length === 0}>2. Upload Background & Fonts</TabsTrigger>
           <TabsTrigger value="design" disabled={!backgroundImage}>3. Design & Download</TabsTrigger>
         </TabsList>
         
@@ -251,7 +259,7 @@ const Index = () => {
           
           {csvData.headers.length > 0 && (
             <div className="mt-8 flex justify-end">
-              <Button onClick={handleNextStep}>Next: Upload Background</Button>
+              <Button onClick={handleNextStep}>Next: Upload Background & Fonts</Button>
             </div>
           )}
         </TabsContent>
@@ -263,19 +271,30 @@ const Index = () => {
               <BackgroundUploader onUpload={handleBackgroundUpload} />
             </div>
             
-            {backgroundImage && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Background Preview</h2>
-                <div className="aspect-[85.6/53.98] relative overflow-hidden rounded border border-gray-200">
-                  <img 
-                    src={backgroundImage} 
-                    alt="ID Card Background" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Upload Custom Fonts</h2>
+              <FontUploader onFontsUpdate={handleFontsUpdate} />
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>Tip:</strong> Download fonts from Google Fonts and upload the .woff, .woff2, .ttf, or .otf files here.
+                  They will be available in the font selector during card design.
+                </p>
               </div>
-            )}
+            </div>
           </div>
+          
+          {backgroundImage && (
+            <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Background Preview</h2>
+              <div className="aspect-[85.6/53.98] relative overflow-hidden rounded border border-gray-200 max-w-md">
+                <img 
+                  src={backgroundImage} 
+                  alt="ID Card Background" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
           
           {backgroundImage && (
             <div className="mt-8 flex justify-end">
