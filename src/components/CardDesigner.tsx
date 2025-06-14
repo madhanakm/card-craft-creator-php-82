@@ -1,9 +1,10 @@
+
 import React, { useState, useCallback } from "react";
 import Draggable from "react-draggable";
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import Ruler from "./Ruler";
-import { AlignLeft, AlignCenter, AlignRight, Move, Grid, Eye } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, Move, Grid, Eye, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CardDesignerProps {
@@ -32,6 +33,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [fieldsState, setFields] = useState<CardField[]>(fields);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [showAxisLines, setShowAxisLines] = useState(true);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
@@ -91,11 +94,19 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     updateField(selectedField, { x: snapToGridPosition(newX) });
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6 p-6 bg-gray-50 min-h-screen">
       {/* Custom Fonts Display */}
       {customFonts.length > 0 && (
-        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
           <h3 className="text-sm font-medium text-green-700 mb-2">
             Custom Fonts Available ({customFonts.length})
           </h3>
@@ -113,163 +124,233 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         </div>
       )}
 
-      {/* Card Settings and Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Card Info */}
-        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-          <h3 className="text-sm font-medium text-blue-700 mb-2">Card Settings</h3>
-          <p className="text-sm text-blue-600">
-            <strong>{orientation}</strong> | 
-            <strong> {cardDimensions.width}×{cardDimensions.height}px</strong> |
-            <strong> CMYK Professional</strong>
-          </p>
-        </div>
-
-        {/* Design Tools */}
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Design Tools</h3>
-          <div className="flex gap-2">
-            <Button
-              variant={showGrid ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowGrid(!showGrid)}
-            >
-              <Grid className="h-4 w-4 mr-1" />
-              Grid
-            </Button>
-            <Button
-              variant={snapToGrid ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSnapToGrid(!snapToGrid)}
-            >
-              <Move className="h-4 w-4 mr-1" />
-              Snap
-            </Button>
+      {/* Enhanced Control Panel */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Card Info */}
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <h3 className="text-sm font-medium text-blue-700 mb-2">Card Settings</h3>
+            <p className="text-sm text-blue-600">
+              <strong>{orientation}</strong><br/>
+              <strong>{cardDimensions.width}×{cardDimensions.height}px</strong><br/>
+              <strong>CMYK Professional</strong>
+            </p>
           </div>
-        </div>
 
-        {/* Quick Alignment */}
-        {selectedField && (
-          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-            <h3 className="text-sm font-medium text-purple-700 mb-2">Quick Align</h3>
-            <div className="flex gap-1">
+          {/* Design Tools */}
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Design Tools</h3>
+            <div className="flex gap-2 flex-wrap">
               <Button
-                variant="outline"
+                variant={showGrid ? "default" : "outline"}
                 size="sm"
-                onClick={() => alignField("left")}
+                onClick={() => setShowGrid(!showGrid)}
               >
-                <AlignLeft className="h-4 w-4" />
+                <Grid className="h-4 w-4 mr-1" />
+                Grid
               </Button>
               <Button
-                variant="outline"
+                variant={snapToGrid ? "default" : "outline"}
                 size="sm"
-                onClick={() => alignField("center")}
+                onClick={() => setSnapToGrid(!snapToGrid)}
               >
-                <AlignCenter className="h-4 w-4" />
+                <Move className="h-4 w-4 mr-1" />
+                Snap
               </Button>
               <Button
-                variant="outline"
+                variant={showAxisLines ? "default" : "outline"}
                 size="sm"
-                onClick={() => alignField("right")}
+                onClick={() => setShowAxisLines(!showAxisLines)}
               >
-                <AlignRight className="h-4 w-4" />
+                <Crosshair className="h-4 w-4 mr-1" />
+                Axis
               </Button>
             </div>
           </div>
-        )}
+
+          {/* Mouse Position */}
+          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+            <h3 className="text-sm font-medium text-purple-700 mb-2">Cursor Position</h3>
+            <p className="text-sm text-purple-600 font-mono">
+              X: {Math.round(mousePosition.x)}px<br/>
+              Y: {Math.round(mousePosition.y)}px
+            </p>
+          </div>
+
+          {/* Quick Alignment */}
+          {selectedField && (
+            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+              <h3 className="text-sm font-medium text-orange-700 mb-2">Quick Align</h3>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => alignField("left")}
+                >
+                  <AlignLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => alignField("center")}
+                >
+                  <AlignCenter className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => alignField("right")}
+                >
+                  <AlignRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Main Design Area */}
+      {/* Main Design Area - Improved Layout */}
       <div className="flex gap-6">
-        {/* Canvas section */}
-        <div className="flex-1">
-          <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            {/* Enhanced Rulers */}
-            <Ruler 
-              orientation="horizontal" 
-              length={cardDimensions.width} 
-              className="absolute -top-5 left-6 z-20 bg-white border border-gray-300 shadow-sm"
-            />
-            <Ruler 
-              orientation="vertical" 
-              length={cardDimensions.height} 
-              className="absolute -left-5 top-6 z-20 bg-white border border-gray-300 shadow-sm"
-            />
-            
-            {/* Canvas with improved styling */}
-            <div
-              className="relative border-2 border-gray-400 overflow-hidden shadow-lg"
-              style={{
-                width: `${cardDimensions.width}px`,
-                height: `${cardDimensions.height}px`,
-                backgroundImage: `url(${backgroundImage})`,
-                backgroundSize: `${cardDimensions.width}px ${cardDimensions.height}px`,
-                backgroundPosition: '0px 0px',
-                backgroundRepeat: 'no-repeat',
-                imageRendering: 'pixelated'
-              }}
-            >
-              {/* Enhanced Grid overlay */}
-              {showGrid && (
-                <div 
-                  className="absolute inset-0 opacity-30 pointer-events-none"
-                  style={{
-                    backgroundImage: `
-                      linear-gradient(to right, #3b82f6 1px, transparent 1px),
-                      linear-gradient(to bottom, #3b82f6 1px, transparent 1px)
-                    `,
-                    backgroundSize: '10px 10px'
-                  }}
-                />
-              )}
-
-              {/* Render draggable fields with improved styling */}
-              {fieldsState.map((field) => (
-                <Draggable
-                  key={field.id}
-                  position={{ x: field.x, y: field.y }}
-                  onDrag={(_, data) => {
-                    const newX = snapToGridPosition(data.x);
-                    const newY = snapToGridPosition(data.y);
-                    updateField(field.id, { x: newX, y: newY });
-                  }}
-                  bounds="parent"
-                >
-                  <div
-                    className={cn(
-                      "absolute cursor-move border-2 transition-all duration-200",
-                      selectedField === field.id 
-                        ? "border-red-500 bg-red-100 bg-opacity-70 shadow-lg" 
-                        : "border-blue-500 bg-blue-100 bg-opacity-50 hover:bg-opacity-70"
-                    )}
+        {/* Canvas Section - Better Centered */}
+        <div className="flex-1 bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex justify-center">
+            <div className="relative">
+              {/* Enhanced Rulers */}
+              <Ruler 
+                orientation="horizontal" 
+                length={cardDimensions.width} 
+                className="absolute -top-6 left-0 z-20 bg-white border border-gray-300 shadow-sm"
+              />
+              <Ruler 
+                orientation="vertical" 
+                length={cardDimensions.height} 
+                className="absolute -left-6 top-0 z-20 bg-white border border-gray-300 shadow-sm"
+              />
+              
+              {/* Canvas with improved styling and axis lines */}
+              <div
+                className="relative border-2 border-gray-400 overflow-visible shadow-lg"
+                style={{
+                  width: `${cardDimensions.width}px`,
+                  height: `${cardDimensions.height}px`,
+                  backgroundImage: `url(${backgroundImage})`,
+                  backgroundSize: `${cardDimensions.width}px ${cardDimensions.height}px`,
+                  backgroundPosition: '0px 0px',
+                  backgroundRepeat: 'no-repeat',
+                  imageRendering: 'pixelated'
+                }}
+                onMouseMove={handleMouseMove}
+              >
+                {/* Enhanced Grid overlay */}
+                {showGrid && (
+                  <div 
+                    className="absolute inset-0 opacity-30 pointer-events-none"
                     style={{
-                      width: `${field.isPhoto ? (field.photoWidth || 60) : (field.textAreaWidth || 200)}px`,
-                      height: `${field.isPhoto ? (field.photoHeight || 60) : (field.textAreaHeight || 40)}px`,
-                      fontSize: `${field.fontSize}px`,
-                      fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
-                      fontFamily: field.fontFamily || "helvetica",
-                      color: field.color || "inherit",
-                      textAlign: field.textAlign || "left",
-                      lineHeight: field.lineHeight || 1.2,
+                      backgroundImage: `
+                        linear-gradient(to right, #3b82f6 1px, transparent 1px),
+                        linear-gradient(to bottom, #3b82f6 1px, transparent 1px)
+                      `,
+                      backgroundSize: '10px 10px'
                     }}
-                    onClick={() => setSelectedField(field.id)}
+                  />
+                )}
+
+                {/* X and Y Axis Lines */}
+                {showAxisLines && selectedField && (
+                  <>
+                    {(() => {
+                      const field = fieldsState.find(f => f.id === selectedField);
+                      if (!field) return null;
+                      
+                      return (
+                        <>
+                          {/* Vertical line at field X position */}
+                          <div
+                            className="absolute top-0 w-px bg-red-500 opacity-70 pointer-events-none z-10"
+                            style={{
+                              left: `${field.x}px`,
+                              height: `${cardDimensions.height}px`
+                            }}
+                          />
+                          {/* Horizontal line at field Y position */}
+                          <div
+                            className="absolute left-0 h-px bg-red-500 opacity-70 pointer-events-none z-10"
+                            style={{
+                              top: `${field.y}px`,
+                              width: `${cardDimensions.width}px`
+                            }}
+                          />
+                          {/* Center alignment guides */}
+                          <div
+                            className="absolute top-0 w-px bg-green-500 opacity-50 pointer-events-none z-10"
+                            style={{
+                              left: `${cardDimensions.width / 2}px`,
+                              height: `${cardDimensions.height}px`
+                            }}
+                          />
+                          <div
+                            className="absolute left-0 h-px bg-green-500 opacity-50 pointer-events-none z-10"
+                            style={{
+                              top: `${cardDimensions.height / 2}px`,
+                              width: `${cardDimensions.width}px`
+                            }}
+                          />
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* Render draggable fields with improved styling */}
+                {fieldsState.map((field) => (
+                  <Draggable
+                    key={field.id}
+                    position={{ x: field.x, y: field.y }}
+                    onDrag={(_, data) => {
+                      const newX = snapToGridPosition(data.x);
+                      const newY = snapToGridPosition(data.y);
+                      updateField(field.id, { x: newX, y: newY });
+                    }}
+                    bounds="parent"
                   >
-                    <div className="p-1 truncate text-xs font-medium">
-                      {field.field} {field.isPhoto && "📷"}
+                    <div
+                      className={cn(
+                        "absolute cursor-move border-2 transition-all duration-200 rounded",
+                        selectedField === field.id 
+                          ? "border-red-500 bg-red-100 bg-opacity-80 shadow-lg ring-2 ring-red-300" 
+                          : "border-blue-500 bg-blue-100 bg-opacity-60 hover:bg-opacity-80"
+                      )}
+                      style={{
+                        width: `${field.isPhoto ? (field.photoWidth || 60) : (field.textAreaWidth || 200)}px`,
+                        height: `${field.isPhoto ? (field.photoHeight || 60) : (field.textAreaHeight || 40)}px`,
+                        fontSize: `${field.fontSize}px`,
+                        fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
+                        fontFamily: field.fontFamily || "helvetica",
+                        color: field.color || "inherit",
+                        textAlign: field.textAlign || "left",
+                        lineHeight: field.lineHeight || 1.2,
+                      }}
+                      onClick={() => setSelectedField(field.id)}
+                    >
+                      <div className="p-2 truncate text-xs font-medium">
+                        <div className="flex items-center gap-1">
+                          {field.field} {field.isPhoto && "📷"}
+                        </div>
+                        <div className="text-xs text-gray-600 font-mono">
+                          ({field.x}, {field.y})
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600 px-1">
-                      ({field.x}, {field.y})
-                    </div>
-                  </div>
-                </Draggable>
-              ))}
+                  </Draggable>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Enhanced Field controls panel */}
         <div className="w-80 bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Eye className="h-5 w-5" />
               Field Properties
@@ -285,7 +366,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                   
                   return (
                     <>
-                      <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="bg-gray-50 p-3 rounded-lg border">
                         <label className="block text-sm font-medium mb-1">
                           Selected Field: <span className="text-blue-600">{field.field}</span>
                         </label>
