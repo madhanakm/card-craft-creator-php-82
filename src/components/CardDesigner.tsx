@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, AlignJustify } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -15,6 +14,14 @@ interface CardDesignerProps {
   onFieldsUpdate: (fields: CardField[]) => void;
   backgroundImage: string;
   orientation: "portrait" | "landscape";
+  customFonts?: Array<{
+    id: string;
+    name: string;
+    family: string;
+    weight: string;
+    style: string;
+    url: string;
+  }>;
 }
 
 interface AlignmentGuide {
@@ -36,7 +43,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   fields, 
   onFieldsUpdate, 
   backgroundImage,
-  orientation 
+  orientation,
+  customFonts = []
 }) => {
   const [activeField, setActiveField] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -399,6 +407,15 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     
     onFieldsUpdate(updatedFields);
   };
+  
+  // Combined font families (built-in + custom)
+  const allFontFamilies = [
+    ...FONT_FAMILIES,
+    ...customFonts.map(font => ({ 
+      value: font.family.toLowerCase().replace(/\s+/g, '-'), 
+      label: font.family 
+    }))
+  ];
 
   return (
     <div className="flex flex-col">
@@ -472,10 +489,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
             width: `${cardDimensions.width}px`,
             height: `${cardDimensions.height}px`,
             backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: '100% 100%',
-            backgroundPosition: 'center',
+            backgroundSize: `${cardDimensions.width}px ${cardDimensions.height}px`,
+            backgroundPosition: '0px 0px',
             backgroundRepeat: 'no-repeat',
-            imageRendering: 'pixelated',
+            imageRendering: '-webkit-optimize-contrast',
           }}
           onMouseMove={(e) => {
             handleDrag(e);
@@ -631,6 +648,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
               </div>
               
               {field.isPhoto ? (
+                
                 <div className="space-y-3">
                   <p className="text-xs text-gray-500 mb-2">Photo Field Settings</p>
                   
@@ -759,9 +777,11 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                         <SelectValue placeholder="Select font" />
                       </SelectTrigger>
                       <SelectContent>
-                        {FONT_FAMILIES.map((font) => (
+                        {allFontFamilies.map((font) => (
                           <SelectItem key={font.value} value={font.value}>
-                            {font.label}
+                            <span style={{ fontFamily: font.label }}>
+                              {font.label}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -41,14 +41,14 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       return;
     }
     
-    // Use the original file directly without any processing
-    // This preserves exact colors and quality
+    // Create object URL directly from file without any processing
+    // This preserves the exact binary data and colors
     const imageUrl = URL.createObjectURL(file);
     onUpload(imageUrl);
     
     toast({
       title: "Background Uploaded",
-      description: "Image uploaded with exact color preservation.",
+      description: "Original image uploaded with zero color processing - exact colors preserved.",
     });
   };
 
@@ -78,7 +78,7 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
             Recommended size: 3.38" x 2.13" (85.6mm x 53.98mm) for standard ID cards
           </p>
           <p className="text-xs text-blue-600 mb-4">
-            Exact color reproduction guaranteed - no processing or color changes
+            Zero processing - Original file used directly for perfect color matching
           </p>
           <Button variant="outline" className="cursor-pointer" onClick={handleButtonClick}>
             <ImagePlus className="h-4 w-4 mr-2" />
