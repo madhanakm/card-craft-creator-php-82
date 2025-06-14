@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 
 // Photo cache to store loaded images
@@ -44,15 +43,9 @@ const hexToCMYK = (hex: string): { c: number; m: number; y: number; k: number } 
   };
 };
 
-// Enhanced CMYK color setting with proper color space metadata
+// Enhanced CMYK color setting with proper color conversion
 const setCMYKColor = (doc: jsPDF, hexColor: string) => {
   const cmyk = hexToCMYK(hexColor);
-  
-  // Add CMYK color space metadata to PDF
-  const colorspaceRef = doc.internal.newObject();
-  doc.internal.write(`${colorspaceRef} 0 obj`);
-  doc.internal.write(`[/DeviceCMYK]`);
-  doc.internal.write(`endobj`);
   
   // Convert CMYK to RGB for display but preserve CMYK metadata
   const r = Math.round(255 * (1 - cmyk.c / 100) * (1 - cmyk.k / 100));
@@ -61,7 +54,7 @@ const setCMYKColor = (doc: jsPDF, hexColor: string) => {
   
   doc.setTextColor(r, g, b);
   
-  // Add CMYK metadata as annotation
+  // Store CMYK metadata for reference
   (doc as any).cmykColors = (doc as any).cmykColors || [];
   (doc as any).cmykColors.push({
     rgb: [r, g, b],
@@ -247,7 +240,7 @@ const generatePDF = async (
     ? { width: 300, height: 480 } 
     : { width: 480, height: 300 };
 
-  // Create PDF with professional CMYK color space support
+  // Create PDF with professional settings optimized for CMYK printing
   const doc = new jsPDF({
     orientation,
     unit: 'px',
@@ -258,7 +251,7 @@ const generatePDF = async (
     userUnit: 1.0
   });
 
-  // Add comprehensive CMYK color profile metadata
+  // Add comprehensive metadata for professional printing
   doc.setProperties({
     title: 'Professional ID Cards - CMYK Color Space',
     subject: 'High-Quality CMYK ID Cards for Professional Printing',
@@ -266,10 +259,6 @@ const generatePDF = async (
     keywords: 'CMYK, color-accurate, professional printing, id cards, color space',
     author: 'ID Card Generator Pro'
   });
-
-  // Add CMYK color space declaration to PDF
-  const pdfInternal = doc.internal;
-  pdfInternal.write('/ColorSpace << /DeviceCMYK /DeviceCMYK >>');
   
   console.log('PDF initialized with CMYK color space support');
 
