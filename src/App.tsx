@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,12 +28,12 @@ function App() {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
-  const handleCSVUpload = (data: Record<string, string>[], files: FileList | null) => {
-    setCsvData(data);
-    setSelectedFiles(files);
+  const handleCSVUpload = (data: { headers: string[]; records: Record<string, string>[]; }) => {
+    setCsvData(data.records);
+    // Note: We're not handling selectedFiles here since CSVUploader doesn't provide it
     
-    if (data.length > 0) {
-      const columns = Object.keys(data[0]);
+    if (data.records.length > 0) {
+      const columns = data.headers;
       const newFields: CardField[] = columns.map((column, index) => ({
         id: `field-${index}`,
         field: column,
