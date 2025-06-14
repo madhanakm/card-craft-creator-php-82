@@ -321,6 +321,7 @@ const Index = () => {
                 onFieldsUpdate={handleFieldUpdate}
                 backgroundImage={backgroundImage || ''}
                 orientation={orientation}
+                availableFonts={availableFonts}
               />
             </div>
             

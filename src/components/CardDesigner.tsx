@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Bold, Type, GripVertical, Circle, Square, Palette, FileText, Grid, AlignCenter, Move, AlignLeft, AlignRight, Maximize2, AlignJustify } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -15,6 +14,7 @@ interface CardDesignerProps {
   onFieldsUpdate: (fields: CardField[]) => void;
   backgroundImage: string;
   orientation: "portrait" | "landscape";
+  availableFonts: string[];
 }
 
 interface AlignmentGuide {
@@ -23,20 +23,12 @@ interface AlignmentGuide {
   position: number;
 }
 
-const FONT_FAMILIES = [
-  { value: "helvetica", label: "Helvetica" },
-  { value: "times", label: "Times" },
-  { value: "courier", label: "Courier" },
-  { value: "arial", label: "Arial" },
-  { value: "georgia", label: "Georgia" },
-  { value: "verdana", label: "Verdana" }
-];
-
 const CardDesigner: React.FC<CardDesignerProps> = ({ 
   fields, 
   onFieldsUpdate, 
   backgroundImage,
-  orientation 
+  orientation,
+  availableFonts 
 }) => {
   const [activeField, setActiveField] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -400,6 +392,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
+  // Create font options from available fonts
+  const fontOptions = availableFonts.map(font => ({
+    value: font.toLowerCase().replace(/\s+/g, '-'),
+    label: font,
+    family: font
+  }));
+
   return (
     <div className="flex flex-col">
       {/* Toolbar */}
@@ -753,15 +752,22 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     <FileText className="h-4 w-4 text-gray-500" />
                     <Select 
                       value={field.fontFamily || "helvetica"} 
-                      onValueChange={(value) => handleFontFamilyChange(value, field.id)}
+                      onValueChange={(value) => {
+                        // Find the font family name from the value
+                        const selectedFont = fontOptions.find(f => f.value === value);
+                        const fontFamily = selectedFont ? selectedFont.family : value;
+                        handleFontFamilyChange(fontFamily, field.id);
+                      }}
                     >
                       <SelectTrigger className="flex-1 h-8">
                         <SelectValue placeholder="Select font" />
                       </SelectTrigger>
                       <SelectContent>
-                        {FONT_FAMILIES.map((font) => (
+                        {fontOptions.map((font) => (
                           <SelectItem key={font.value} value={font.value}>
-                            {font.label}
+                            <span style={{ fontFamily: font.family }}>
+                              {font.label}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
