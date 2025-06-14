@@ -4,22 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CSVUploader from "@/components/CSVUploader";
 import BackgroundUploader from "@/components/BackgroundUploader";
-import FontUploader from "@/components/FontUploader";
 import CardDesigner from "@/components/CardDesigner";
 import CardPreview from "@/components/CardPreview";
 import { useToast } from "@/components/ui/use-toast";
 import { ChevronLeft, ChevronRight, Download, Folder } from "lucide-react";
 import { CardField } from "@/utils/pdfGenerator";
-
-// Custom font interface
-interface CustomFont {
-  id: string;
-  name: string;
-  family: string;
-  weight: string;
-  style: string;
-  url: string;
-}
 
 // Global variable to store selected files for PDF generation
 declare global {
@@ -46,7 +35,6 @@ const Index = () => {
   const [previewsPerPage, setPreviewsPerPage] = useState(5);
   const [photoFolder, setPhotoFolder] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
-  const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
 
   // Handle file selector for photo folder with improved functionality
   const handlePhotoFolderSelect = () => {
@@ -119,7 +107,7 @@ const Index = () => {
     setBackgroundImage(imageUrl);
     toast({
       title: "Background Uploaded",
-      description: "Your background image has been set with perfect color preservation.",
+      description: "Your background image has been set.",
     });
   };
 
@@ -154,8 +142,8 @@ const Index = () => {
     try {
       await window.generatePDF(csvData.records, cardFields, backgroundImage, orientation, selectedFiles);
       toast({
-        title: "CMYK PDF Generated",
-        description: `Generated professional CMYK PDF with ${csvData.records.length} ID cards for high-quality printing.`,
+        title: "Success",
+        description: `Generated PDF with ${csvData.records.length} ID cards.`,
       });
     } catch (error) {
       console.error("PDF generation error:", error);
@@ -183,7 +171,7 @@ const Index = () => {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold text-center mb-8">Professional ID Card Generator</h1>
+      <h1 className="text-3xl font-bold text-center mb-8">ID Card Generator</h1>
       
       <Tabs value={activeStep} onValueChange={setActiveStep} className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-8">
@@ -193,52 +181,50 @@ const Index = () => {
         </TabsList>
         
         <TabsContent value="upload-data" className="mt-4">
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                <h2 className="text-xl font-semibold mb-4">Upload CSV/Excel File</h2>
-                <CSVUploader onUpload={handleCSVUpload} />
-                
-                {csvData.headers.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-medium mb-2">Data Preview</h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr>
-                            {csvData.headers.map((header, index) => (
-                              <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {header}
-                              </th>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4">Upload CSV/Excel File</h2>
+              <CSVUploader onUpload={handleCSVUpload} />
+              
+              {csvData.headers.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-2">Data Preview</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          {csvData.headers.map((header, index) => (
+                            <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {csvData.records.slice(0, previewsPerPage).map((record, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {csvData.headers.map((header, colIndex) => (
+                              <td key={colIndex} className="px-3 py-2 text-sm text-gray-500">
+                                {record[header]}
+                              </td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {csvData.records.slice(0, previewsPerPage).map((record, rowIndex) => (
-                            <tr key={rowIndex}>
-                              {csvData.headers.map((header, colIndex) => (
-                                <td key={colIndex} className="px-3 py-2 text-sm text-gray-500">
-                                  {record[header]}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {csvData.records.length > previewsPerPage && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Showing {previewsPerPage} of {csvData.records.length} records
-                      </p>
-                    )}
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                  {csvData.records.length > previewsPerPage && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Showing {previewsPerPage} of {csvData.records.length} records
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-xl font-semibold mb-4">Instructions</h2>
-              <ul className="list-disc pl-5 space-y-2 text-sm">
+              <ul className="list-disc pl-5 space-y-2">
                 <li>Upload a CSV or Excel (.xlsx) file with your ID card data</li>
                 <li>The first row should contain the field names</li>
                 <li>Each row after that represents one ID card</li>
@@ -246,17 +232,17 @@ const Index = () => {
                 <li>Photo fields should contain just the filename (e.g., "john.jpg")</li>
                 <li>Select a photo folder to load images from</li>
                 <li>Use hex color codes (e.g., #FF0000) for text colors</li>
-                <li>Upload custom fonts for professional typography</li>
+                <li>Font families: Helvetica, Times, Arial, Georgia, Verdana, Courier</li>
               </ul>
               
-              <div className="bg-green-50 p-4 rounded-lg mt-6">
-                <h3 className="text-md font-semibold text-green-700 mb-2">Professional Features</h3>
-                <ul className="list-disc pl-5 space-y-2 text-green-700 text-sm">
-                  <li>CMYK color space for professional printing</li>
-                  <li>Perfect color matching with uploaded backgrounds</li>
-                  <li>Custom font upload and management</li>
-                  <li>High-resolution output optimization</li>
-                  <li>Exact pixel-perfect positioning</li>
+              <div className="bg-blue-50 p-4 rounded-lg mt-6">
+                <h3 className="text-md font-semibold text-blue-700 mb-2">New Features</h3>
+                <ul className="list-disc pl-5 space-y-2 text-blue-700">
+                  <li>Excel file support (.xlsx format)</li>
+                  <li>Font family selection for text fields</li>
+                  <li>Ruler guides for precise alignment</li>
+                  <li>Improved photo loading and display</li>
+                  <li>Better PDF output matching preview</li>
                 </ul>
               </div>
             </div>
@@ -270,32 +256,24 @@ const Index = () => {
         </TabsContent>
         
         <TabsContent value="upload-background" className="mt-4">
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-xl font-semibold mb-4">Upload Background Image</h2>
               <BackgroundUploader onUpload={handleBackgroundUpload} />
             </div>
             
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold mb-4">Upload Custom Fonts</h2>
-              <FontUploader 
-                onFontsUpdate={setCustomFonts}
-                customFonts={customFonts}
-              />
-              
-              {backgroundImage && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2">Background Preview</h3>
-                  <div className="aspect-[85.6/53.98] relative overflow-hidden rounded border border-gray-200">
-                    <img 
-                      src={backgroundImage} 
-                      alt="ID Card Background" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+            {backgroundImage && (
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Background Preview</h2>
+                <div className="aspect-[85.6/53.98] relative overflow-hidden rounded border border-gray-200">
+                  <img 
+                    src={backgroundImage} 
+                    alt="ID Card Background" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           
           {backgroundImage && (
@@ -323,7 +301,6 @@ const Index = () => {
                 onFieldsUpdate={handleFieldUpdate}
                 backgroundImage={backgroundImage || ''}
                 orientation={orientation}
-                customFonts={customFonts}
               />
             </div>
             
@@ -399,12 +376,9 @@ const Index = () => {
                   onClick={handleGeneratePDF} 
                   disabled={isGeneratingPDF || csvData.records.length === 0}
                 >
-                  {isGeneratingPDF ? "Generating CMYK PDF..." : "Generate Professional CMYK PDF"}
+                  {isGeneratingPDF ? "Generating..." : "Generate PDF"}
                   <Download className="ml-2 h-4 w-4" />
                 </Button>
-                <p className="text-xs text-green-600 text-center mt-2">
-                  Generates CMYK color space PDF optimized for professional printing
-                </p>
               </div>
             </div>
           </div>
