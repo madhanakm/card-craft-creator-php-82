@@ -41,11 +41,10 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       return;
     }
     
-    // Create a canvas to process the image without color distortion
+    // Create a canvas to process the image with exact color preservation
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { 
       alpha: false,
-      colorSpace: 'srgb',
       willReadFrequently: false 
     });
     
@@ -70,7 +69,7 @@ const BackgroundUploader: React.FC<BackgroundUploaderProps> = ({ onUpload }) => 
       // Draw image without any transformations
       ctx.drawImage(img, 0, 0);
       
-      // Convert back to blob with maximum quality
+      // Convert back to blob with maximum quality to preserve colors
       canvas.toBlob((blob) => {
         if (blob) {
           const imageUrl = URL.createObjectURL(blob);

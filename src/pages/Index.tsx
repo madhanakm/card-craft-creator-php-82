@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CSVUploader from "@/components/CSVUploader";
 import BackgroundUploader from "@/components/BackgroundUploader";
+import FontUploader from "@/components/FontUploader";
 import CardDesigner from "@/components/CardDesigner";
 import CardPreview from "@/components/CardPreview";
 import { useToast } from "@/components/ui/use-toast";
