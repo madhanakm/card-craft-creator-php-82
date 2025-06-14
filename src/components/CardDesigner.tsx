@@ -227,6 +227,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   };
 
   const handleFontFamilyChange = (fontFamily: string, fieldId: string) => {
+    console.log('Changing font family to:', fontFamily, 'for field:', fieldId);
     const updatedFields = fields.map(field => {
       if (field.id === fieldId) {
         return { ...field, fontFamily };
@@ -392,12 +393,15 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     onFieldsUpdate(updatedFields);
   };
 
-  // Create font options from available fonts
+  // Create font options - use the font name directly as both value and family
   const fontOptions = availableFonts.map(font => ({
-    value: font.toLowerCase().replace(/\s+/g, '-'),
+    value: font,
     label: font,
     family: font
   }));
+
+  console.log('Available fonts in CardDesigner:', availableFonts);
+  console.log('Font options:', fontOptions);
 
   return (
     <div className="flex flex-col">
@@ -753,10 +757,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     <Select 
                       value={field.fontFamily || "helvetica"} 
                       onValueChange={(value) => {
-                        // Find the font family name from the value
-                        const selectedFont = fontOptions.find(f => f.value === value);
-                        const fontFamily = selectedFont ? selectedFont.family : value;
-                        handleFontFamilyChange(fontFamily, field.id);
+                        console.log('Font selected:', value);
+                        handleFontFamilyChange(value, field.id);
                       }}
                     >
                       <SelectTrigger className="flex-1 h-8">
