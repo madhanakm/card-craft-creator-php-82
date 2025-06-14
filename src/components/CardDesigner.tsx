@@ -3,6 +3,8 @@ import Draggable from "react-draggable";
 import { cn } from "@/lib/utils";
 import { CardField } from "@/utils/pdfGenerator";
 import Ruler from "./Ruler";
+import { AlignLeft, AlignCenter, AlignRight, Move, Grid, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CardDesignerProps {
   fields: CardField[];
@@ -28,6 +30,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
 }) => {
   const [selectedField, setSelectedField] = useState<string | null>(null);
   const [fieldsState, setFields] = useState<CardField[]>(fields);
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
 
   const cardDimensions = orientation === "portrait" 
     ? { width: 300, height: 480 } 
@@ -40,9 +44,11 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   ];
 
   const updateField = (fieldId: string, updates: Partial<CardField>) => {
-    setFields(fields.map(field => 
+    const newFields = fieldsState.map(field => 
       field.id === fieldId ? { ...field, ...updates } : field
-    ));
+    );
+    setFields(newFields);
+    onFieldsUpdate(newFields);
   };
 
   const handleFieldsChange = useCallback(
@@ -54,14 +60,42 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   );
 
   React.useEffect(() => {
-    handleFieldsChange(fieldsState);
-  }, [fieldsState, handleFieldsChange]);
+    setFields(fields);
+  }, [fields]);
+
+  const snapToGridPosition = (value: number, gridSize: number = 10) => {
+    return snapToGrid ? Math.round(value / gridSize) * gridSize : value;
+  };
+
+  const alignField = (alignment: "left" | "center" | "right") => {
+    if (!selectedField) return;
+    
+    const field = fieldsState.find(f => f.id === selectedField);
+    if (!field) return;
+
+    let newX = field.x;
+    const textAreaWidth = field.textAreaWidth || 200;
+
+    switch (alignment) {
+      case "left":
+        newX = 20;
+        break;
+      case "center":
+        newX = (cardDimensions.width - textAreaWidth) / 2;
+        break;
+      case "right":
+        newX = cardDimensions.width - textAreaWidth - 20;
+        break;
+    }
+
+    updateField(selectedField, { x: snapToGridPosition(newX) });
+  };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Custom Fonts Display */}
       {customFonts.length > 0 && (
-        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
           <h3 className="text-sm font-medium text-green-700 mb-2">
             Custom Fonts Available ({customFonts.length})
           </h3>
@@ -79,36 +113,92 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
         </div>
       )}
 
-      {/* Orientation and dimensions display */}
-      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-        <h3 className="text-sm font-medium text-blue-700 mb-2">Card Settings</h3>
-        <p className="text-sm text-blue-600">
-          Orientation: <strong>{orientation}</strong> | 
-          Dimensions: <strong>{cardDimensions.width}px × {cardDimensions.height}px</strong> |
-          Color Space: <strong>CMYK Professional</strong>
-        </p>
+      {/* Card Settings and Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Card Info */}
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <h3 className="text-sm font-medium text-blue-700 mb-2">Card Settings</h3>
+          <p className="text-sm text-blue-600">
+            <strong>{orientation}</strong> | 
+            <strong> {cardDimensions.width}×{cardDimensions.height}px</strong> |
+            <strong> CMYK Professional</strong>
+          </p>
+        </div>
+
+        {/* Design Tools */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Design Tools</h3>
+          <div className="flex gap-2">
+            <Button
+              variant={showGrid ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowGrid(!showGrid)}
+            >
+              <Grid className="h-4 w-4 mr-1" />
+              Grid
+            </Button>
+            <Button
+              variant={snapToGrid ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSnapToGrid(!snapToGrid)}
+            >
+              <Move className="h-4 w-4 mr-1" />
+              Snap
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick Alignment */}
+        {selectedField && (
+          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+            <h3 className="text-sm font-medium text-purple-700 mb-2">Quick Align</h3>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignField("left")}
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignField("center")}
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alignField("right")}
+              >
+                <AlignRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Canvas and field controls */}
+      {/* Main Design Area */}
       <div className="flex gap-6">
         {/* Canvas section */}
         <div className="flex-1">
-          <div className="relative">
-            {/* Ruler components */}
+          <div className="relative bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            {/* Enhanced Rulers */}
             <Ruler 
               orientation="horizontal" 
               length={cardDimensions.width} 
-              className="absolute -top-6 left-12 z-10"
+              className="absolute -top-5 left-6 z-20 bg-white border border-gray-300 shadow-sm"
             />
             <Ruler 
               orientation="vertical" 
               length={cardDimensions.height} 
-              className="absolute -left-6 top-12 z-10"
+              className="absolute -left-5 top-6 z-20 bg-white border border-gray-300 shadow-sm"
             />
             
-            {/* Canvas */}
+            {/* Canvas with improved styling */}
             <div
-              className="relative border-2 border-gray-300 overflow-hidden"
+              className="relative border-2 border-gray-400 overflow-hidden shadow-lg"
               style={{
                 width: `${cardDimensions.width}px`,
                 height: `${cardDimensions.height}px`,
@@ -119,36 +209,42 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                 imageRendering: 'pixelated'
               }}
             >
-              {/* Grid overlay */}
-              <div 
-                className="absolute inset-0 opacity-20 pointer-events-none"
-                style={{
-                  backgroundImage: `
-                    linear-gradient(to right, #000 1px, transparent 1px),
-                    linear-gradient(to bottom, #000 1px, transparent 1px)
-                  `,
-                  backgroundSize: '20px 20px'
-                }}
-              />
+              {/* Enhanced Grid overlay */}
+              {showGrid && (
+                <div 
+                  className="absolute inset-0 opacity-30 pointer-events-none"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, #3b82f6 1px, transparent 1px),
+                      linear-gradient(to bottom, #3b82f6 1px, transparent 1px)
+                    `,
+                    backgroundSize: '10px 10px'
+                  }}
+                />
+              )}
 
-              {/* Render draggable fields */}
-              {fields.map((field) => (
+              {/* Render draggable fields with improved styling */}
+              {fieldsState.map((field) => (
                 <Draggable
                   key={field.id}
                   position={{ x: field.x, y: field.y }}
                   onDrag={(_, data) => {
-                    updateField(field.id, { x: data.x, y: data.y });
+                    const newX = snapToGridPosition(data.x);
+                    const newY = snapToGridPosition(data.y);
+                    updateField(field.id, { x: newX, y: newY });
                   }}
                   bounds="parent"
                 >
                   <div
                     className={cn(
-                      "absolute cursor-move border-2 border-dashed border-blue-500 bg-blue-100 bg-opacity-50",
-                      selectedField === field.id && "border-red-500 bg-red-100"
+                      "absolute cursor-move border-2 transition-all duration-200",
+                      selectedField === field.id 
+                        ? "border-red-500 bg-red-100 bg-opacity-70 shadow-lg" 
+                        : "border-blue-500 bg-blue-100 bg-opacity-50 hover:bg-opacity-70"
                     )}
                     style={{
-                      width: `${field.textAreaWidth || 200}px`,
-                      height: `${field.textAreaHeight || 40}px`,
+                      width: `${field.isPhoto ? (field.photoWidth || 60) : (field.textAreaWidth || 200)}px`,
+                      height: `${field.isPhoto ? (field.photoHeight || 60) : (field.textAreaHeight || 40)}px`,
                       fontSize: `${field.fontSize}px`,
                       fontWeight: field.fontWeight === "bold" ? "bold" : "normal",
                       fontFamily: field.fontFamily || "helvetica",
@@ -158,8 +254,11 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
                     }}
                     onClick={() => setSelectedField(field.id)}
                   >
-                    <div className="p-1 truncate text-xs">
-                      {field.field} ({field.x}, {field.y})
+                    <div className="p-1 truncate text-xs font-medium">
+                      {field.field} {field.isPhoto && "📷"}
+                    </div>
+                    <div className="text-xs text-gray-600 px-1">
+                      ({field.x}, {field.y})
                     </div>
                   </div>
                 </Draggable>
@@ -168,195 +267,220 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
           </div>
         </div>
 
-        {/* Field controls panel */}
-        <div className="w-80 bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-          <h3 className="text-lg font-semibold mb-4">Field Properties</h3>
+        {/* Enhanced Field controls panel */}
+        <div className="w-80 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Field Properties
+            </h3>
+          </div>
           
-          {selectedField && (
-            <div className="space-y-4">
-              {(() => {
-                const field = fields.find(f => f.id === selectedField);
-                if (!field) return null;
-                
-                return (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Field: {field.field}</label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">X Position</label>
-                        <input
-                          type="number"
-                          value={field.x}
-                          onChange={(e) => updateField(field.id, { x: parseInt(e.target.value) || 0 })}
-                          className="w-full p-2 border border-gray-300 rounded text-sm"
-                        />
+          <div className="p-4 max-h-96 overflow-y-auto">
+            {selectedField && (
+              <div className="space-y-4">
+                {(() => {
+                  const field = fieldsState.find(f => f.id === selectedField);
+                  if (!field) return null;
+                  
+                  return (
+                    <>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <label className="block text-sm font-medium mb-1">
+                          Selected Field: <span className="text-blue-600">{field.field}</span>
+                        </label>
+                        <p className="text-xs text-gray-500">
+                          Type: {field.isPhoto ? "Photo Field" : "Text Field"}
+                        </p>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Y Position</label>
-                        <input
-                          type="number"
-                          value={field.y}
-                          onChange={(e) => updateField(field.id, { y: parseInt(e.target.value) || 0 })}
-                          className="w-full p-2 border border-gray-300 rounded text-sm"
-                        />
-                      </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Font Size</label>
-                      <input
-                        type="number"
-                        value={field.fontSize}
-                        onChange={(e) => updateField(field.id, { fontSize: parseInt(e.target.value) || 12 })}
-                        className="w-full p-2 border border-gray-300 rounded text-sm"
-                        min="8"
-                        max="72"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Font Family</label>
-                      <select
-                        value={field.fontFamily}
-                        onChange={(e) => updateField(field.id, { fontFamily: e.target.value })}
-                        className="w-full p-2 border border-gray-300 rounded text-sm"
-                      >
-                        {fontFamilies.map(font => (
-                          <option key={font} value={font} style={{ fontFamily: font }}>
-                            {font}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Font Weight</label>
-                      <select
-                        value={field.fontWeight}
-                        onChange={(e) => updateField(field.id, { fontWeight: e.target.value })}
-                        className="w-full p-2 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="normal">Normal</option>
-                        <option value="bold">Bold</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Text Color (CMYK Optimized)</label>
-                      <input
-                        type="color"
-                        value={field.color}
-                        onChange={(e) => updateField(field.id, { color: e.target.value })}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
-                      <p className="text-xs text-green-600 mt-1">
-                        Colors are automatically converted to CMYK color space for professional printing
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Text Alignment</label>
-                      <select
-                        value={field.textAlign || "left"}
-                        onChange={(e) => updateField(field.id, { textAlign: e.target.value as "left" | "center" | "right" })}
-                        className="w-full p-2 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Area Width</label>
-                        <input
-                          type="number"
-                          value={field.textAreaWidth || 200}
-                          onChange={(e) => updateField(field.id, { textAreaWidth: parseInt(e.target.value) || 200 })}
-                          className="w-full p-2 border border-gray-300 rounded text-sm"
-                          min="50"
-                          max="400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Line Height</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={field.lineHeight || 1.2}
-                          onChange={(e) => updateField(field.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
-                          className="w-full p-2 border border-gray-300 rounded text-sm"
-                          min="0.8"
-                          max="3.0"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Photo field controls */}
-                    <div className="border-t pt-3">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={field.isPhoto || false}
-                          onChange={(e) => updateField(field.id, { isPhoto: e.target.checked })}
-                          className="rounded"
-                        />
-                        <span className="text-sm font-medium">Photo Field</span>
-                      </label>
-                    </div>
-
-                    {field.isPhoto && (
-                      <div className="space-y-3 bg-gray-50 p-3 rounded">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium mb-1">Photo Shape</label>
-                          <select
-                            value={field.photoShape || "square"}
-                            onChange={(e) => updateField(field.id, { photoShape: e.target.value as "square" | "circle" })}
+                          <label className="block text-sm font-medium mb-1">X Position</label>
+                          <input
+                            type="number"
+                            value={field.x}
+                            onChange={(e) => updateField(field.id, { x: parseInt(e.target.value) || 0 })}
                             className="w-full p-2 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="square">Square</option>
-                            <option value="circle">Circle</option>
-                          </select>
+                            step={snapToGrid ? 10 : 1}
+                          />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Photo Width</label>
-                            <input
-                              type="number"
-                              value={field.photoWidth || 60}
-                              onChange={(e) => updateField(field.id, { photoWidth: parseInt(e.target.value) || 60 })}
-                              className="w-full p-2 border border-gray-300 rounded text-sm"
-                              min="20"
-                              max="200"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Photo Height</label>
-                            <input
-                              type="number"
-                              value={field.photoHeight || 60}
-                              onChange={(e) => updateField(field.id, { photoHeight: parseInt(e.target.value) || 60 })}
-                              className="w-full p-2 border border-gray-300 rounded text-sm"
-                              min="20"
-                              max="200"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Y Position</label>
+                          <input
+                            type="number"
+                            value={field.y}
+                            onChange={(e) => updateField(field.id, { y: parseInt(e.target.value) || 0 })}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                            step={snapToGrid ? 10 : 1}
+                          />
                         </div>
                       </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          
-          {!selectedField && (
-            <p className="text-gray-500 text-sm">Click on a field to edit its properties</p>
-          )}
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          value={field.fontSize}
+                          onChange={(e) => updateField(field.id, { fontSize: parseInt(e.target.value) || 12 })}
+                          className="w-full p-2 border border-gray-300 rounded text-sm"
+                          min="8"
+                          max="72"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Font Family</label>
+                        <select
+                          value={field.fontFamily}
+                          onChange={(e) => updateField(field.id, { fontFamily: e.target.value })}
+                          className="w-full p-2 border border-gray-300 rounded text-sm"
+                        >
+                          {fontFamilies.map(font => (
+                            <option key={font} value={font} style={{ fontFamily: font }}>
+                              {font}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Font Weight</label>
+                        <select
+                          value={field.fontWeight}
+                          onChange={(e) => updateField(field.id, { fontWeight: e.target.value })}
+                          className="w-full p-2 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Text Color (CMYK Optimized)</label>
+                        <input
+                          type="color"
+                          value={field.color}
+                          onChange={(e) => updateField(field.id, { color: e.target.value })}
+                          className="w-full p-1 border border-gray-300 rounded"
+                        />
+                        <p className="text-xs text-green-600 mt-1">
+                          Colors are automatically converted to CMYK color space for professional printing
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Text Alignment</label>
+                        <div className="flex gap-1">
+                          {[
+                            { value: "left", icon: AlignLeft },
+                            { value: "center", icon: AlignCenter },
+                            { value: "right", icon: AlignRight }
+                          ].map(({ value, icon: Icon }) => (
+                            <Button
+                              key={value}
+                              variant={field.textAlign === value ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => updateField(field.id, { textAlign: value as "left" | "center" | "right" })}
+                              className="flex-1"
+                            >
+                              <Icon className="h-4 w-4" />
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Area Width</label>
+                          <input
+                            type="number"
+                            value={field.textAreaWidth || 200}
+                            onChange={(e) => updateField(field.id, { textAreaWidth: parseInt(e.target.value) || 200 })}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                            min="50"
+                            max="400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Line Height</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={field.lineHeight || 1.2}
+                            onChange={(e) => updateField(field.id, { lineHeight: parseFloat(e.target.value) || 1.2 })}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                            min="0.8"
+                            max="3.0"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Photo field controls */}
+                      <div className="border-t pt-3">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={field.isPhoto || false}
+                            onChange={(e) => updateField(field.id, { isPhoto: e.target.checked })}
+                            className="rounded"
+                          />
+                          <span className="text-sm font-medium">Photo Field</span>
+                        </label>
+                      </div>
+
+                      {field.isPhoto && (
+                        <div className="space-y-3 bg-gray-50 p-3 rounded">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Photo Shape</label>
+                            <select
+                              value={field.photoShape || "square"}
+                              onChange={(e) => updateField(field.id, { photoShape: e.target.value as "square" | "circle" })}
+                              className="w-full p-2 border border-gray-300 rounded text-sm"
+                            >
+                              <option value="square">Square</option>
+                              <option value="circle">Circle</option>
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Photo Width</label>
+                              <input
+                                type="number"
+                                value={field.photoWidth || 60}
+                                onChange={(e) => updateField(field.id, { photoWidth: parseInt(e.target.value) || 60 })}
+                                className="w-full p-2 border border-gray-300 rounded text-sm"
+                                min="20"
+                                max="200"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Photo Height</label>
+                              <input
+                                type="number"
+                                value={field.photoHeight || 60}
+                                onChange={(e) => updateField(field.id, { photoHeight: parseInt(e.target.value) || 60 })}
+                                className="w-full p-2 border border-gray-300 rounded text-sm"
+                                min="20"
+                                max="200"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            
+            {!selectedField && (
+              <div className="text-center py-8">
+                <Eye className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">Click on a field to edit its properties</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
